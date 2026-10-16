@@ -12,7 +12,8 @@ import * as schema from "./schema";
  * The application talks to a single Postgres dialect in every environment.
  *
  * - Local development without `DATABASE_URL` uses embedded PGlite backed by
- *   `./.pgdata`, so no database server is required.
+ *   `./.pgdata`, so no database server is required. `PGLITE_DATA_DIR` overrides
+ *   the directory (used by the E2E suite to run against a throwaway database).
  * - Staging/production sets `DATABASE_URL` and uses a real Postgres server.
  *
  * Both drivers share `schema`, so queries and migrations are identical.
@@ -29,7 +30,8 @@ function createDatabase(): Database {
     return drizzlePostgres(client, { schema }) as unknown as Database;
   }
 
-  const client = new PGlite("./.pgdata");
+  const dataDir = process.env.PGLITE_DATA_DIR ?? "./.pgdata";
+  const client = new PGlite(dataDir);
   return drizzlePglite(client, { schema });
 }
 

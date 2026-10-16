@@ -42,9 +42,11 @@ yarn-error.log*
 
 # local embedded postgres (pglite)
 /.pgdata/
+/.pgdata-e2e/
 
 # local image uploads
 /.uploads/
+/.uploads-e2e/
 
 # vercel
 .vercel

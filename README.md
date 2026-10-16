@@ -40,6 +40,7 @@ No son obligatorias en desarrollo. La app arranca con valores por defecto.
 | Variable       | Requerida           | Descripción                                                                 |
 | -------------- | ------------------- | --------------------------------------------------------------------------- |
 | `DATABASE_URL` | Producción / staging | Cadena de conexión a Postgres. Si está presente, se usa `postgres-js`; si no, se usa PGlite en `./.pgdata`. |
+| `PGLITE_DATA_DIR` | —                | Carpeta de PGlite. Por defecto `./.pgdata`. Los tests usan `./.pgdata-e2e`.  |
 | `UPLOAD_DIR`   | —                   | Carpeta donde se guardan las imágenes subidas. Por defecto `./.uploads`.     |
 | `NODE_ENV`     | —                   | `production` marca la cookie de sesión como `secure`.                        |
 
@@ -117,6 +118,12 @@ imágenes), de CRM (alta, edición, búsqueda y baja de clientes), de tasaciones
 baja), de configuración (webhook, bitácora de actividad y validaciones), del
 buscador (interpretación de consultas, búsqueda cruzada y estados vacíos) y de
 catálogos (carga de ejemplos, alta, filtro por tipo, edición y baja).
+
+Cada corrida usa una **base y carpeta de subidas aisladas**: el `globalSetup`
+borra y migra `./.pgdata-e2e`, y levanta la app con `PGLITE_DATA_DIR` y
+`UPLOAD_DIR` apuntando a `./.pgdata-e2e` y `./.uploads-e2e`. Tu base de
+desarrollo (`./.pgdata`) nunca se toca. Ambos directorios están en `.gitignore`
+y podés cambiarlos con `E2E_DB_DIR` / `E2E_UPLOAD_DIR`.
 
 ## Modelo multi-tenant
 
