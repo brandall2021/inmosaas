@@ -69,14 +69,15 @@ No son obligatorias en desarrollo. La app arranca con valores por defecto.
 src/
   app/
     (auth)/            # Páginas públicas: login, signup
-    (app)/             # Área autenticada: shell, dashboard, propiedades, CRM, tasaciones, alquileres, buscador, catálogos y configuración
+    (app)/             # Área autenticada: shell, dashboard, propiedades, CRM, tasaciones, alquileres, documentos, buscador, catálogos y configuración
     api/uploads/       # Sirve imágenes con verificación de sesión
+    api/documentos/    # Sirve archivos de documentos con verificación de sesión
     page.tsx           # Landing pública
   components/
     app-shell/         # Navegación (sidebar, mobile)
     ui/                # Componentes shadcn/ui
   db/
-    schema.ts          # Tablas y relaciones (users, organizations, memberships, sessions, properties, property_images, clients, valuations, rentals, activity_logs, integrations)
+    schema.ts          # Tablas y relaciones (users, organizations, memberships, sessions, properties, property_images, clients, valuations, rentals, documents, activity_logs, integrations)
     index.ts           # Conexión Drizzle (PGlite / Postgres), lazy
   features/
     auth/              # Acciones de sesión + formularios
@@ -85,6 +86,7 @@ src/
     clients/           # CRM: acciones, consultas y componentes
     tasaciones/        # Tasaciones: acciones, consultas y componentes
     alquileres/        # Alquileres: acciones, consultas y componentes
+    documentos/        # Documentos: subida, generación de PDF (contratos/propuestas), consultas y componentes
     buscador/          # Buscador IA: intérprete de consultas + búsqueda cruzada
     catalogos/         # Catálogos: datos de referencia (zonas, amenities, servicios, etiquetas)
     configuracion/     # Integraciones, automatizaciones y bitácora de actividad
@@ -92,7 +94,7 @@ src/
     dal.ts             # Acceso a datos con guards de auth/autorización
     session.ts         # Sesiones respaldadas por base de datos
     password.ts        # Hash/verificación de contraseñas (scrypt)
-    storage.ts         # Almacenamiento de imágenes en disco (filesystem local)
+    storage.ts         # Almacenamiento de imágenes y documentos en disco (filesystem local)
     validation.ts      # Esquemas Zod
     action-state.ts    # Contrato de resultados de Server Actions
   proxy.ts             # Redirect optimista por cookie (ex-middleware en Next 16)
@@ -115,9 +117,12 @@ ejecuta los flujos de autenticación (registro, cierre de sesión, login,
 credenciales inválidas), de propiedades (alta, edición, baja y subida/borrado de
 imágenes), de CRM (alta, edición, búsqueda y baja de clientes), de tasaciones
 (alta, edición y baja), de alquileres (alta con propiedad e inquilino, edición y
-baja), de configuración (webhook, bitácora de actividad y validaciones), del
-buscador (interpretación de consultas, búsqueda cruzada y estados vacíos) y de
-catálogos (carga de ejemplos, alta, filtro por tipo, edición y baja).
+baja), de documentos (subida con descarga `%PDF`, listado con filtro por tipo,
+búsqueda, borrado con confirmación, contrato generado desde un alquiler y
+propuesta generada desde una propiedad), de configuración (webhook, bitácora de
+actividad y validaciones), del buscador (interpretación de consultas, búsqueda
+cruzada y estados vacíos) y de catálogos (carga de ejemplos, alta, filtro por
+tipo, edición y baja).
 
 Cada corrida usa una **base y carpeta de subidas aisladas**: el `globalSetup`
 borra y migra `./.pgdata-e2e`, y levanta la app con `PGLITE_DATA_DIR` y
@@ -216,6 +221,34 @@ Administración de contratos de alquiler por organización en `/alquileres`:
 
 Las fechas se guardan como `YYYY-MM-DD` y se muestran sin corrimiento por zona
 horaria.
+
+## Documentos
+
+Repositorio central de archivos en `/documentos`, aislado por organización. Los
+tres tipos conviven en una sola tabla (`documents.type`):
+
+- **Archivo** (`archivo`): cualquier archivo subido a mano desde
+  `/documentos/nuevo`. Formatos admitidos: **PDF, DOCX, ODT, XLSX o TXT**, hasta
+  **10 MB** por archivo (el límite vive en `next.config.ts` y el exceso se
+  devuelve como error de campo, no como crash).
+- **Contrato de alquiler** (`contrato_alquiler`): PDF generado desde la ficha
+  de un alquiler con el botón "Generar contrato" y condiciones adicionales
+  opcionales. El PDF es un **snapshot inmutable**: congela los datos del
+  alquiler, la propiedad y el inquilino tal como estaban al momento de
+  emitirlo, de modo que editar el canon después **no** altera el contrato ya
+  generado; regenerar crea un segundo documento nuevo sin tocar el primero.
+- **Propuesta** (`propuesta`): PDF generado desde la ficha de una propiedad con
+  el botón "Generar propuesta" (destinatario, vigencia y mensaje son
+  opcionales).
+
+**Permisos**: cualquier miembro de la organización puede ver, subir y generar
+documentos; **solo `owner`/`admin` pueden eliminar** un documento, y siempre
+tras una confirmación. La descarga pasa por `/api/documentos/<storageKey>` con
+la sesión validada (una URL robada no sirve sin cookie), y la bitácora registra
+subidas, generaciones y borrados.
+
+> **Aclaración**: la plantilla de contrato es un modelo de comodidad y **no
+> constituye asesoramiento legal**. Revisala con tu asesor antes de usarla.
 
 ## Buscador IA
 

@@ -57,6 +57,13 @@
       "when": 1792165964465,
       "tag": "0007_superb_yellow_claw",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792209962319,
+      "tag": "0008_clever_mojo",
+      "breakpoints": true
     }
   ]
 }

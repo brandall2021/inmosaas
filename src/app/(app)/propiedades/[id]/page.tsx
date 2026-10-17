@@ -10,6 +10,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getActiveOrganization, requireUser } from "@/lib/dal";
+import { GenerateProposalForm } from "@/features/documentos/components/generate-proposal-form";
+import { listDocumentClientOptions } from "@/features/documentos/data";
 import { DeletePropertyButton } from "@/features/properties/components/delete-property-button";
 import { ImageUploadForm } from "@/features/properties/components/image-upload-form";
 import { PropertyGallery } from "@/features/properties/components/property-gallery";
@@ -61,6 +63,7 @@ export default async function PropiedadDetallePage({
   }
 
   const images = await listPropertyImages(org.id, property.id);
+  const clientOptions = await listDocumentClientOptions(org.id);
 
   const location = [property.address, property.city, property.province]
     .filter(Boolean)
@@ -154,6 +157,11 @@ export default async function PropiedadDetallePage({
           </CardContent>
         </Card>
       </div>
+
+      <GenerateProposalForm
+        propertyId={property.id}
+        clientOptions={clientOptions}
+      />
 
       {property.description ? (
         <Card>

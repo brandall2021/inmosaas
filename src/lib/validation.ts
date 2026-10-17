@@ -252,3 +252,30 @@ export const catalogEntrySchema = z.object({
 });
 
 export type CatalogEntryFormInput = z.infer<typeof catalogEntrySchema>;
+
+export const documentUploadSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(3, { error: "El título debe tener al menos 3 caracteres" })
+    .max(120, { error: "El título no puede superar los 120 caracteres" }),
+  propertyId: optionalIdField,
+  clientId: optionalIdField,
+  rentalId: optionalIdField,
+});
+
+export type DocumentUploadFormInput = z.infer<typeof documentUploadSchema>;
+
+export const contractGenerateSchema = z.object({
+  additionalNotes: optionalText(5000),
+});
+
+export type ContractGenerateFormInput = z.infer<typeof contractGenerateSchema>;
+
+export const proposalGenerateSchema = z.object({
+  clientId: optionalIdField,
+  expiresAt: optionalDateField,
+  message: optionalText(5000),
+});
+
+export type ProposalGenerateFormInput = z.infer<typeof proposalGenerateSchema>;

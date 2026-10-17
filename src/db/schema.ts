@@ -322,6 +322,51 @@ export const rentals = pgTable(
   ],
 );
 
+export type DocumentType = "contrato_alquiler" | "propuesta" | "archivo";
+
+/**
+ * A document belonging to a tenant: generated (contract/proposal PDF) or
+ * uploaded (office file). Only the storage key is persisted; the binary lives
+ * in the storage backend and is served through an authenticated route. Entity
+ * links are cleared (set null) when the linked record is deleted.
+ */
+export const documents = pgTable(
+  "documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    type: text("type").$type<DocumentType>().notNull(),
+    storageKey: text("storage_key").notNull(),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    expiresAt: date("expires_at"),
+    propertyId: uuid("property_id").references(() => properties.id, {
+      onDelete: "set null",
+    }),
+    clientId: uuid("client_id").references(() => clients.id, {
+      onDelete: "set null",
+    }),
+    rentalId: uuid("rental_id").references(() => rentals.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("documents_storage_key_idx").on(table.storageKey),
+    index("documents_organization_idx").on(table.organizationId),
+    index("documents_org_type_idx").on(table.organizationId, table.type),
+    index("documents_org_created_idx").on(table.organizationId, table.createdAt),
+  ],
+);
+
 /**
  * Append-only audit trail of tenant-scoped mutations. Written best-effort by
  * server actions so a logging failure never breaks the primary flow.
@@ -428,6 +473,7 @@ export const organizationsRelations = relations(organizations, ({ many }) => ({
   activityLogs: many(activityLogs),
   integrations: many(integrations),
   catalogEntries: many(catalogEntries),
+  documents: many(documents),
 }));
 
 export const membershipsRelations = relations(memberships, ({ one }) => ({
@@ -455,6 +501,7 @@ export const propertiesRelations = relations(properties, ({ one, many }) => ({
   }),
   images: many(propertyImages),
   rentals: many(rentals),
+  documents: many(documents),
 }));
 
 export const propertyImagesRelations = relations(propertyImages, ({ one }) => ({
@@ -470,6 +517,7 @@ export const clientsRelations = relations(clients, ({ one, many }) => ({
     references: [organizations.id],
   }),
   rentals: many(rentals),
+  documents: many(documents),
 }));
 
 export const valuationsRelations = relations(valuations, ({ one }) => ({
@@ -483,7 +531,7 @@ export const valuationsRelations = relations(valuations, ({ one }) => ({
   }),
 }));
 
-export const rentalsRelations = relations(rentals, ({ one }) => ({
+export const rentalsRelations = relations(rentals, ({ one, many }) => ({
   organization: one(organizations, {
     fields: [rentals.organizationId],
     references: [organizations.id],
@@ -495,6 +543,26 @@ export const rentalsRelations = relations(rentals, ({ one }) => ({
   client: one(clients, {
     fields: [rentals.clientId],
     references: [clients.id],
+  }),
+  documents: many(documents),
+}));
+
+export const documentsRelations = relations(documents, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [documents.organizationId],
+    references: [organizations.id],
+  }),
+  property: one(properties, {
+    fields: [documents.propertyId],
+    references: [properties.id],
+  }),
+  client: one(clients, {
+    fields: [documents.clientId],
+    references: [clients.id],
+  }),
+  rental: one(rentals, {
+    fields: [documents.rentalId],
+    references: [rentals.id],
   }),
 }));
 
@@ -547,3 +615,5 @@ export type Integration = typeof integrations.$inferSelect;
 export type NewIntegration = typeof integrations.$inferInsert;
 export type CatalogEntry = typeof catalogEntries.$inferSelect;
 export type NewCatalogEntry = typeof catalogEntries.$inferInsert;
+export type Document = typeof documents.$inferSelect;
+export type NewDocument = typeof documents.$inferInsert;

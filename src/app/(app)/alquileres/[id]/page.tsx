@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { DeleteRentalButton } from "@/features/alquileres/components/delete-rental-button";
 import { StatusBadge } from "@/features/alquileres/components/status-badge";
+import { GenerateContractForm } from "@/features/documentos/components/generate-contract-form";
 import { formatDate } from "@/features/alquileres/constants";
 import { getRental } from "@/features/alquileres/data";
 import { formatPrice } from "@/features/properties/constants";
@@ -130,6 +131,8 @@ export default async function AlquilerDetallePage({
           </dl>
         </CardContent>
       </Card>
+
+      <GenerateContractForm rentalId={rental.id} />
 
       {rental.notes ? (
         <Card>

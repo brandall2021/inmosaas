@@ -2,6 +2,7 @@ import {
   Building2,
   Calculator,
   Contact,
+  FileText,
   KeyRound,
   LayoutDashboard,
   Library,
@@ -25,6 +26,7 @@ export const primaryNav: NavItem[] = [
   { title: "Tasaciones", href: "/tasaciones", icon: Calculator },
   { title: "CRM", href: "/crm", icon: Contact },
   { title: "Catálogos", href: "/catalogos", icon: Library },
+  { title: "Documentos", href: "/documentos", icon: FileText },
 ];
 
 export const secondaryNav: NavItem[] = [

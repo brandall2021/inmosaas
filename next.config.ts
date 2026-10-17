@@ -7,8 +7,11 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@electric-sql/pglite"],
   experimental: {
     serverActions: {
-      bodySizeLimit: "8mb",
+      // Must clear the 10 MB document limit plus multipart overhead so an
+      // oversized upload reaches the action and gets a per-field error.
+      bodySizeLimit: "12mb",
     },
+    proxyClientMaxBodySize: "12mb",
   },
   turbopack: {
     rules: {
