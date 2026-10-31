@@ -331,6 +331,49 @@ export const rentals = pgTable(
   ],
 );
 
+/**
+ * A manual collection registered against a rental. The currency is snapshotted
+ * from the rental when the payment is recorded and frozen afterwards. Payments
+ * outlive the rental's lifecycle (finalizado/rescindido) — deleting the rental
+ * cascades, but ending it preserves the history.
+ */
+export type PaymentMethod = "efectivo" | "transferencia" | "debito" | "cheque";
+
+export const rentalPayments = pgTable(
+  "rental_payments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    rentalId: uuid("rental_id")
+      .notNull()
+      .references(() => rentals.id, { onDelete: "cascade" }),
+    amount: numeric("amount", {
+      precision: 14,
+      scale: 2,
+      mode: "number",
+    }).notNull(),
+    currency: text("currency").$type<Currency>().notNull(),
+    paidDate: date("paid_date").notNull(),
+    method: text("method")
+      .$type<PaymentMethod>()
+      .notNull()
+      .default("transferencia"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("rental_payments_organization_idx").on(table.organizationId),
+    index("rental_payments_rental_idx").on(table.rentalId),
+  ],
+);
+
 export type DocumentType = "contrato_alquiler" | "propuesta" | "archivo";
 
 /**

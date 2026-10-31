@@ -3,6 +3,12 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { ArrowLeft, Building2, CalendarDays, Pencil, User } from "lucide-react";
 
+import {
+  DeletePaymentButton,
+  PaymentForm,
+} from "@/features/cobranzas";
+import { listPayments, getPaymentSummary, rentalPeriodMonths } from "@/features/cobranzas/data";
+import { paymentMethodLabels } from "@/features/cobranzas/constants";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -16,7 +22,12 @@ import { GenerateContractForm } from "@/features/documentos/components/generate-
 import { formatDate } from "@/features/alquileres/constants";
 import { getRental } from "@/features/alquileres/data";
 import { formatPrice } from "@/features/properties/constants";
-import { getActiveOrganization, requireUser } from "@/lib/dal";
+import {
+  getActiveOrganization,
+  hasRole,
+  requireMembership,
+  requireUser,
+} from "@/lib/dal";
 import { cn } from "@/lib/utils";
 
 export const instant = false;
@@ -38,22 +49,35 @@ function DetailRow({
 
 export default async function AlquilerDetallePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ editarPago?: string }>;
 }) {
-  await requireUser();
+  const user = await requireUser();
   const org = await getActiveOrganization();
   if (!org) {
     return null;
   }
 
   const { id } = await params;
+  const { editarPago } = await searchParams;
   const row = await getRental(org.id, id);
   if (!row) {
     notFound();
   }
-
   const { rental, propertyTitle, clientName } = row;
+
+  const role = await requireMembership(user.id, org.id);
+  const [payments, summary] = await Promise.all([
+    listPayments(org.id, rental.id),
+    getPaymentSummary(org.id, rental.id),
+  ]);
+  const periodMonths = rentalPeriodMonths(rental.startDate, rental.endDate);
+  const editing = editarPago
+    ? payments.find((payment) => payment.id === editarPago) ?? null
+    : null;
+  const canManage = hasRole(role, ["owner", "admin"]);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -129,6 +153,103 @@ export default async function AlquilerDetallePage({
               }
             />
           </dl>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Cobranzas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <dl>
+            <DetailRow
+              label="Total cobrado"
+              value={
+                payments.length > 0
+                  ? formatPrice(summary.collected, rental.currency)
+                  : "Sin cobros"
+              }
+            />
+            <DetailRow
+              label="Último pago"
+              value={summary.lastPaymentDate ? formatDate(summary.lastPaymentDate) : "—"}
+            />
+            <DetailRow
+              label="Meses cubiertos"
+              value={`${summary.monthsCovered} de ${periodMonths}`}
+            />
+          </dl>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{editing ? "Editar pago" : "Registrar pago"}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <PaymentForm rentalId={rental.id} payment={editing ?? undefined} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Pagos ({payments.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {payments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Sin pagos registrados todavía.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="py-2 pr-3 font-medium">Fecha</th>
+                    <th className="py-2 pr-3 font-medium">Monto</th>
+                    <th className="py-2 pr-3 font-medium">Método</th>
+                    <th className="py-2 pr-3 font-medium">Notas</th>
+                    {canManage ? (
+                      <th className="py-2 text-right font-medium">Acciones</th>
+                    ) : null}
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.map((payment) => (
+                    <tr key={payment.id} className="border-b last:border-b-0">
+                      <td className="py-2 pr-3">{formatDate(payment.paidDate)}</td>
+                      <td className="py-2 pr-3 font-medium whitespace-nowrap">
+                        {formatPrice(payment.amount, payment.currency)}
+                      </td>
+                      <td className="py-2 pr-3 whitespace-nowrap">
+                        {paymentMethodLabels[payment.method]}
+                      </td>
+                      <td className="max-w-48 truncate py-2 pr-3">
+                        {payment.notes ?? "—"}
+                      </td>
+                      {canManage ? (
+                        <td className="py-2">
+                          <div className="flex justify-end items-center gap-1">
+                            <Link
+                              href={`/alquileres/${rental.id}?editarPago=${payment.id}`}
+                              className={cn(
+                                buttonVariants({ variant: "ghost", size: "sm" }),
+                              )}
+                              aria-label={`Editar pago ${formatDate(payment.paidDate)}`}
+                            >
+                              <Pencil className="size-4" />
+                              Editar
+                            </Link>
+                            <DeletePaymentButton id={payment.id} />
+                          </div>
+                        </td>
+                      ) : null}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -218,6 +218,34 @@ export const rentalStatusSchema = z
   })
   .default("vigente");
 
+export const paymentMethodSchema = z
+  .enum(["efectivo", "transferencia", "debito", "cheque"], {
+    error: "Seleccioná un método",
+  })
+  .default("transferencia");
+
+/** Positive amount: required and strictly greater than zero. */
+const positiveAmountField = z.preprocess(
+  emptyToUndefined,
+  z.coerce
+    .number({ error: "Ingresá un monto válido" })
+    .positive({ error: "El monto debe ser mayor a cero" }),
+);
+
+const requiredDateField = z
+  .string()
+  .min(10, { error: "Indicá la fecha del cobro" })
+  .regex(/^\d{4}-\d{2}-\d{2}$/, { error: "Fecha inválida" });
+
+export const paymentSchema = z.object({
+  amount: positiveAmountField,
+  paidDate: requiredDateField,
+  method: paymentMethodSchema,
+  notes: optionalText(2000),
+});
+
+export type PaymentFormInput = z.infer<typeof paymentSchema>;
+
 const dateField = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, { error: "Fecha inválida" });
