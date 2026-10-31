@@ -26,6 +26,9 @@ export function IntentChips({ plan }: { plan: SearchPlan }) {
   if (plan.city) {
     chips.push(`Zona: ${titleCase(plan.city)}`);
   }
+  if (plan.zone) {
+    chips.push(`Zona: ${titleCase(plan.zone)}`);
+  }
   if (plan.minPrice !== undefined) {
     chips.push(`Desde ${money(plan.minPrice, plan.currency)}`);
   }

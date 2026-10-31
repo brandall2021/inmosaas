@@ -9,6 +9,8 @@ export {
   countCatalogEntriesByKind,
   getCatalogEntry,
   listCatalogEntries,
+  listCatalogFormOptions,
+  type FormOptionKind,
 } from "./data";
 export { CatalogEntryForm } from "./components/catalog-entry-form";
 export { CatalogEntryRow } from "./components/catalog-entry-row";

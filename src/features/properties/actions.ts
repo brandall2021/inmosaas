@@ -7,6 +7,7 @@ import { and, count, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { properties, propertyImages } from "@/db/schema";
+import { listCatalogFormOptions } from "@/features/catalogos/data";
 import { logActivity } from "@/features/configuracion/data";
 import type { ActionState } from "@/lib/action-state";
 import {
@@ -23,7 +24,17 @@ import {
 } from "./image-constants";
 import { getProperty, getPropertyImage } from "./data";
 
+/** The "sin zona" option of the zone select; it submits this sentinel. */
+const NO_ZONE_VALUE = "__sin_zona__";
+
 function parsePropertyForm(formData: FormData) {
+  const zone = formData.get("zone");
+  // The hidden marker separates "every checkbox unchecked" (clear the list)
+  // from "the multiselection is not rendered" (keep whatever is stored).
+  const amenitiesFieldRendered = formData.get("amenitiesPresent") === "1";
+  const rawAmenities = amenitiesFieldRendered
+    ? Array.from(formData.getAll("amenities"))
+    : undefined;
   return propertySchema.safeParse({
     title: formData.get("title"),
     description: formData.get("description"),
@@ -39,7 +50,54 @@ function parsePropertyForm(formData: FormData) {
     bedrooms: formData.get("bedrooms"),
     bathrooms: formData.get("bathrooms"),
     areaM2: formData.get("areaM2"),
+    zone: zone === NO_ZONE_VALUE ? "" : zone,
+    amenities: rawAmenities,
   });
+}
+
+/**
+ * Catalog-backed fields are stored by name, so the server re-checks them
+ * against the active tenant's own catalog: no way to persist references from
+ * another organization through the form. Zones fall back to free text only
+ * when the tenant has no "zona" entries; used amenities still stored on the
+ * property stay editable even after their catalog entry was removed.
+ */
+async function validateCatalogFields(
+  organizationId: string,
+  zone: string | undefined,
+  amenities: string[] | undefined,
+  currentAmenities: string[],
+): Promise<{ ok: true; zone: string | null; amenities: string[] } | { ok: false; message: string }> {
+  const [zoneEntries, characteristicEntries] = await Promise.all([
+    listCatalogFormOptions(organizationId, ["zona"]),
+    listCatalogFormOptions(organizationId, ["amenity", "servicio"]),
+  ]);
+
+  if (zone && zoneEntries.length > 0) {
+    const zoneNames = zoneEntries.map((entry) => entry.name);
+    if (!zoneNames.includes(zone)) {
+      return {
+        ok: false,
+        message: "La zona no pertenece al catálogo de tu organización",
+      };
+    }
+  }
+
+  if (amenities) {
+    const allowed = new Set(characteristicEntries.map((entry) => entry.name));
+    for (const name of currentAmenities) {
+      allowed.add(name);
+    }
+    const unknown = amenities.filter((name) => !allowed.has(name));
+    if (unknown.length > 0) {
+      return {
+        ok: false,
+        message: `Estas características no están en el catálogo de tu organización: ${unknown.join(", ")}`,
+      };
+    }
+  }
+
+  return { ok: true, zone: zone ?? null, amenities: amenities ?? currentAmenities };
 }
 
 export async function createPropertyAction(
@@ -60,9 +118,20 @@ export async function createPropertyAction(
     return { success: false, errors: parsed.error.flatten().fieldErrors };
   }
 
+  const { zone, amenities, ...core } = parsed.data;
+  const catalog = await validateCatalogFields(org.id, zone, amenities, []);
+  if (!catalog.ok) {
+    return { success: false, message: catalog.message };
+  }
+
   const [created] = await db
     .insert(properties)
-    .values({ ...parsed.data, organizationId: org.id })
+    .values({
+      ...core,
+      zone: catalog.zone,
+      amenities: catalog.amenities,
+      organizationId: org.id,
+    })
     .returning({ id: properties.id });
 
   await logActivity({
@@ -102,9 +171,37 @@ export async function updatePropertyAction(
     return { success: false, errors: parsed.error.flatten().fieldErrors };
   }
 
+  const [existing] = await db
+    .select({ zone: properties.zone, amenities: properties.amenities })
+    .from(properties)
+    .where(
+      and(eq(properties.id, id), eq(properties.organizationId, org.id)),
+    )
+    .limit(1);
+
+  if (!existing) {
+    return { success: false, message: "La propiedad no existe" };
+  }
+
+  const { zone, amenities, ...core } = parsed.data;
+  const catalog = await validateCatalogFields(
+    org.id,
+    zone,
+    amenities,
+    existing.amenities ?? [],
+  );
+  if (!catalog.ok) {
+    return { success: false, message: catalog.message };
+  }
+
   const [updated] = await db
     .update(properties)
-    .set({ ...parsed.data, updatedAt: new Date() })
+    .set({
+      ...core,
+      zone: catalog.zone,
+      amenities: catalog.amenities,
+      updatedAt: new Date(),
+    })
     .where(
       and(eq(properties.id, id), eq(properties.organizationId, org.id)),
     )

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
+import { listCatalogFormOptions } from "@/features/catalogos/data";
 import { PropertyForm } from "@/features/properties/components/property-form";
 import { getProperty } from "@/features/properties/data";
 import { getActiveOrganization, requireUser } from "@/lib/dal";
@@ -27,6 +28,11 @@ export default async function EditarPropiedadPage({
     notFound();
   }
 
+  const [zoneOptions, characteristicOptions] = await Promise.all([
+    listCatalogFormOptions(org.id, ["zona"]),
+    listCatalogFormOptions(org.id, ["amenity", "servicio"]),
+  ]);
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <Link
@@ -37,7 +43,11 @@ export default async function EditarPropiedadPage({
         Volver
       </Link>
 
-      <PropertyForm property={property} />
+      <PropertyForm
+        property={property}
+        zoneOptions={zoneOptions.map((entry) => entry.name)}
+        characteristicOptions={characteristicOptions.map((entry) => entry.name)}
+      />
     </div>
   );
 }

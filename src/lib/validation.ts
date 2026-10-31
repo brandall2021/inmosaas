@@ -52,6 +52,38 @@ function optionalText(max: number) {
   );
 }
 
+/**
+ * Optional list of characteristic names (amenities/servicios) coming from the
+ * multiselection: blanks dropped, trimmed, de-duplicated and sorted so the
+ * stored order is stable. An empty submitted list stays `[]` on purpose (the
+ * caller distinguishes that from an absent field, which passes `undefined`).
+ */
+function optionalNameList(max: number) {
+  return z.preprocess(
+    (value) => {
+      if (value === undefined || value === null || value === "") {
+        return undefined;
+      }
+      const items = Array.isArray(value) ? value : [value];
+      const names = Array.from(
+        new Set(
+          items
+            .map((item) => String(item).trim())
+            .filter((name) => name.length > 0),
+        ),
+      ).sort();
+      // An empty list stays as [] (the field was rendered but nothing was
+      // checked -> the caller wants to clear); absence of the field stays
+      // undefined (field not rendered -> caller keeps what is stored).
+      return names;
+    },
+    z
+      .array(z.string().max(120))
+      .max(max, { error: `No puede haber más de ${max} características` })
+      .optional(),
+  );
+}
+
 /** Optional whole number bounded to a sane range (blank -> `undefined`). */
 function optionalInt(min: number, max: number) {
   return z.preprocess(
@@ -116,6 +148,8 @@ export const propertySchema = z.object({
   bedrooms: optionalInt(0, 50),
   bathrooms: optionalInt(0, 50),
   areaM2: optionalInt(0, 100000),
+  zone: optionalText(80),
+  amenities: optionalNameList(50),
 });
 
 export type PropertyFormInput = z.infer<typeof propertySchema>;

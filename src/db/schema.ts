@@ -4,6 +4,7 @@ import {
   date,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   text,
@@ -156,6 +157,14 @@ export const properties = pgTable(
     bedrooms: integer("bedrooms"),
     bathrooms: integer("bathrooms"),
     areaM2: integer("area_m2"),
+    /**
+     * Reference data by name (not FK): the match happens against the tenant's
+     * `catalog_entries` of kind "zona", so removing an entry never breaks
+     * existing properties.
+     */
+    zone: text("zone"),
+    /** Characteristic names (amenities/servicios), stored sorted and trimmed. */
+    amenities: jsonb("amenities").$type<string[]>().notNull().default([]),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Pencil } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
@@ -128,6 +129,7 @@ export default async function PropiedadDetallePage({
           </CardHeader>
           <CardContent>
             <dl>
+              <DetailRow label="Zona" value={property.zone ?? null} />
               <DetailRow label="Ambientes" value={property.rooms} />
               <DetailRow label="Dormitorios" value={property.bedrooms} />
               <DetailRow label="Baños" value={property.bathrooms} />
@@ -136,6 +138,18 @@ export default async function PropiedadDetallePage({
                 value={property.areaM2 ? `${property.areaM2} m²` : null}
               />
             </dl>
+            {property.amenities.length > 0 ? (
+              <div
+                className="mt-3 flex flex-wrap gap-2"
+                data-testid="property-amenities"
+              >
+                {property.amenities.map((name) => (
+                  <Badge key={name} variant="secondary" className="font-normal">
+                    {name}
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 

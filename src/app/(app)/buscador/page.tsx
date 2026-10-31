@@ -14,6 +14,7 @@ import { IntentChips } from "@/features/buscador/components/intent-chips";
 import { ResultGroup } from "@/features/buscador/components/result-group";
 import { searchEverything } from "@/features/buscador/data";
 import { hasCriteria, interpretQuery } from "@/features/buscador/query";
+import { listCatalogFormOptions } from "@/features/catalogos/data";
 import { getActiveOrganization, requireUser } from "@/lib/dal";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +39,13 @@ export default async function BuscadorPage({
 
   const params = await searchParams;
   const query = (params.q ?? "").trim();
-  const plan = interpretQuery(query);
+  // Zones come from the active tenant's catalog: "en <lugar>" matches one of
+  // them (case-insensitively) only when the catalog has that zone.
+  const zoneEntries = await listCatalogFormOptions(org.id, ["zona"]);
+  const plan = interpretQuery(
+    query,
+    zoneEntries.map((entry) => entry.name),
+  );
   const ready = query.length > 0 && hasCriteria(plan);
   const results = ready ? await searchEverything(org.id, plan) : null;
 

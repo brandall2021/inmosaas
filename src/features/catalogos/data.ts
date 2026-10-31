@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, count, eq, ilike, or, type SQL } from "drizzle-orm";
+import { and, asc, count, eq, ilike, inArray, or, type SQL } from "drizzle-orm";
 
 import { db } from "@/db";
 import { catalogEntries, type CatalogKind } from "@/db/schema";
@@ -87,4 +87,27 @@ export async function countCatalogEntriesByKind(
     acc[row.kind] = row.value;
     return acc;
   }, {});
+}
+
+/** Kind names whose entries feed the property form fields. */
+export type FormOptionKind = Extract<CatalogKind, "zona" | "amenity" | "servicio">;
+
+/**
+ * Tenant-scoped catalog entries for the form pickers. Ordered by kind and
+ * name so the UI groups zonas first and amenities/servicios alphabetically.
+ */
+export async function listCatalogFormOptions(
+  organizationId: string,
+  kinds: FormOptionKind[],
+) {
+  return db
+    .select()
+    .from(catalogEntries)
+    .where(
+      and(
+        eq(catalogEntries.organizationId, organizationId),
+        inArray(catalogEntries.kind, kinds),
+      ),
+    )
+    .orderBy(asc(catalogEntries.kind), asc(catalogEntries.name));
 }

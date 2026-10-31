@@ -64,6 +64,13 @@
       "when": 1792209962319,
       "tag": "0008_clever_mojo",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793485233829,
+      "tag": "0009_huge_zodiak",
+      "breakpoints": true
     }
   ]
 }

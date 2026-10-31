@@ -68,6 +68,9 @@ async function searchProperties(
       conditions.push(cityMatch);
     }
   }
+  if (plan.zone) {
+    conditions.push(eq(properties.zone, plan.zone));
+  }
   if (plan.minPrice !== undefined) {
     conditions.push(gte(properties.price, plan.minPrice));
   }

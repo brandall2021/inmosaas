@@ -47,6 +47,11 @@ export function PropertyCard({ property }: { property: Property }) {
               <span className="truncate">{location}</span>
             </p>
           ) : null}
+          {property.zone ? (
+            <p className="text-xs text-muted-foreground">
+              Zona: {property.zone}
+            </p>
+          ) : null}
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-lg font-semibold">

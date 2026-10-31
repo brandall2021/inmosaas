@@ -18,6 +18,8 @@ export type SearchPlan = {
   operation?: PropertyOperation;
   propertyTypes: PropertyType[];
   city?: string;
+  /** Zone from the tenant's catalog matched case-insensitively (exact filter). */
+  zone?: string;
   minPrice?: number;
   maxPrice?: number;
   currency?: Currency;
@@ -152,7 +154,15 @@ function currencyOf(input: string): Currency | undefined {
   return undefined;
 }
 
-export function interpretQuery(raw: string): SearchPlan {
+/**
+ * @param zoneNames zone names of the active tenant's catalog (kind "zona");
+ *   "en <lugar>" terms matching one of them case-insensitively become an exact
+ *   zone filter instead of the free-text city match.
+ */
+export function interpretQuery(
+  raw: string,
+  zoneNames: string[] = [],
+): SearchPlan {
   const plan: SearchPlan = {
     raw: raw.trim(),
     tokens: [],
@@ -231,7 +241,15 @@ export function interpretQuery(raw: string): SearchPlan {
     "i",
   ).exec(work);
   if (cityMatch && !NOT_A_CITY.has(cityMatch[1])) {
-    plan.city = cityMatch[1].trim();
+    const place = cityMatch[1].trim();
+    const zone = zoneNames.find(
+      (name) => name.toLowerCase() === place.toLowerCase(),
+    );
+    if (zone) {
+      plan.zone = zone;
+    } else {
+      plan.city = place;
+    }
     work = work.replace(cityMatch[0], " ");
   }
 
@@ -261,6 +279,7 @@ export function hasCriteria(plan: SearchPlan): boolean {
     plan.operation !== undefined ||
     plan.propertyTypes.length > 0 ||
     plan.city !== undefined ||
+    plan.zone !== undefined ||
     plan.minPrice !== undefined ||
     plan.maxPrice !== undefined
   );

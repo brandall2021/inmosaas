@@ -83,3 +83,62 @@ test("interpreta consultas y busca en todos los módulos", async ({ page }) => {
   await search("zzzqqq");
   await expect(page.getByText(/Sin resultados/)).toBeVisible();
 });
+
+test("matchea zonas del catálogo y filtra por ellas", async ({ page }) => {
+  await signup(page);
+
+  // Catálogo con dos zonas, para distinguir el filtro de zona del texto libre.
+  await page.getByRole("link", { name: "Catálogos" }).click();
+  await page.getByRole("button", { name: "Cargar ejemplos" }).first().click();
+  await expect(page.getByText("Palermo").filter({ visible: true })).toBeVisible();
+
+  // Propiedad en la zona Palermo y otra en Villa Nueva.
+  const create = async (title: string, zona: string) => {
+    await page.getByRole("link", { name: "Propiedades" }).click();
+    await page.getByRole("link", { name: "Nueva propiedad" }).first().click();
+    await expect(page).toHaveURL("/propiedades/nueva");
+    await page.getByLabel("Título", { exact: true }).fill(title);
+    await page
+      .getByLabel("Tipo", { exact: true })
+      .filter({ visible: true })
+      .click();
+    await page
+      .getByRole("option", { name: "Casa" })
+      .filter({ visible: true })
+      .click();
+    await page.getByLabel("Zona", { exact: true }).click();
+    await page.getByRole("option", { name: zona }).click();
+    await page.getByLabel("Ciudad", { exact: true }).fill("Moscu");
+    await page.getByRole("button", { name: "Crear propiedad" }).click();
+    await expect(page).toHaveURL(/\/propiedades\/[0-9a-f-]{36}$/);
+  };
+
+  const palermoTitle = `Casa Palermo Buscador ${Date.now()}`;
+  const villaTitle = `Casa Villa Nueva Buscador ${Date.now()}`;
+  await create(palermoTitle, "Palermo");
+  await create(villaTitle, "Villa Nueva");
+
+  await page.getByRole("link", { name: "Buscador IA" }).click();
+
+  const search = async (query: string) => {
+    await page
+      .locator('input[name="q"]')
+      .filter({ visible: true })
+      .fill(query);
+    await page.getByRole("button", { name: "Buscar" }).click();
+  };
+
+  // "en palermo" matchea la zona del catálogo (insensible a mayúsculas).
+  await search("casas en palermo");
+  await expect(
+    page.locator('[data-slot="badge"]', { hasText: "Zona: Palermo" }),
+  ).toBeVisible();
+  await expect(page.getByText(palermoTitle)).toBeVisible();
+  await expect(page.getByText(villaTitle)).toHaveCount(0);
+
+  // Un lugar que no está en el catálogo queda como término libre
+  // (match por ciudad/estado, comportamiento actual).
+  await search("en Moscu");
+  await expect(page.getByText(palermoTitle)).toBeVisible();
+  await expect(page.getByText(villaTitle)).toBeVisible();
+});
