@@ -6,7 +6,7 @@
 - [x] 1.2 Encadenar los pasos en un solo job: `npm ci`, `npm run typecheck`, `npm run lint`, `npm run build`
 - [x] 1.3 Agregar el paso de E2E: instalar Chromium (`npx playwright install --with-deps chromium`) y correr `npm run test:e2e`
 - [x] 1.4 Cachear el binario de Playwright (`~/.cache/ms-playwright`) con clave por hash de `package-lock.json`
-- [x] 1.5 *Ajuste sé durante la verificación*: `npm run typecheck` ahora ejecuta `next typegen && tsc --noEmit` (Next 16 genera los tipos de rutas en el build; sin `typegen` el CI falla con `TS2304: Cannot find name 'LayoutProps'`)
+- [x] 1.5 *Ajuste hecho durante la verificación*: `npm run typecheck` ahora ejecuta `next typegen && tsc --noEmit` (Next 16 genera los tipos de rutas en el build; sin `typegen` el CI falla con `TS2304: Cannot find name 'LayoutProps'`)
 
 ## 2. Documentación
 
@@ -14,5 +14,5 @@
 
 ## 3. Verificación
 
-- [ ] 3.1 Surgir un PR con un error intencional de tipado y confirmar que el chequeo de CI falla sin ejecutar E2E
-- [ ] 3.2 Corregir el error y confirmar que el chequeo queda en verde y una segunda corrida reutiliza la caché
+- [x] 3.1 Surgir un PR con un error intencional de tipado y confirmar que el chequeo de CI falla sin ejecutar E2E
+- [x] 3.2 Corregir el error y confirmar que el chequeo queda en verde y una segunda corrida reutiliza la caché
