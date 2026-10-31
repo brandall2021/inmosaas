@@ -1,5 +1,7 @@
 # InmoSaaS
 
+[![CI](https://github.com/brandall2021/inmosaas/actions/workflows/ci.yml/badge.svg)](https://github.com/brandall2021/inmosaas/actions/workflows/ci.yml)
+
 Plataforma SaaS inmobiliaria multi-tenant. Gestión de propiedades, clientes y
 operaciones por organización, con autenticación por sesión y espacio de trabajo
 por inquilino.
@@ -62,6 +64,17 @@ No son obligatorias en desarrollo. La app arranca con valores por defecto.
 | `npm run db:migrate`  | Aplica las migraciones pendientes                 |
 | `npm run db:push`     | Sincroniza el esquema sin migraciones (dev)       |
 | `npm run db:studio`   | Drizzle Studio                                    |
+
+## CI
+
+El workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) corre en cada
+pull request hacia `main` y en cada push a `main`:
+
+1. `npm ci` → 2. `typecheck` → 3. `lint` → 4. `build` → 5. `test:e2e`.
+
+Los tests E2E usan el mismo aislamiento que en local (PGlite en `.pgdata-e2e` y
+subidas en `.uploads-e2e`), así que el pipeline no necesita secretos. El binario
+de Chromium y las dependencias de npm se cachean por hash del lockfile.
 
 ## Estructura
 
