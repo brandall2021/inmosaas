@@ -342,3 +342,62 @@ export const proposalGenerateSchema = z.object({
 });
 
 export type ProposalGenerateFormInput = z.infer<typeof proposalGenerateSchema>;
+
+/** Settlement period as `YYYY-MM` (01..12 month only). */
+const periodField = z
+  .string()
+  .min(7, { error: "Indicá el período de la liquidación" })
+  .regex(/^\d{4}-(0[1-9]|1[0-2])$/, { error: "Período inválido (AAAA-MM)" });
+
+const requiredIdField = z.string().uuid({ error: "Identificador inválido" });
+
+export const settlementSchema = z.object({
+  rentalId: requiredIdField,
+  ownerId: requiredIdField,
+  period: periodField,
+  grossAmount: positiveAmountField,
+  feePercent: z.preprocess(
+    emptyToUndefined,
+    z.coerce
+      .number({ error: "Ingresá un porcentaje válido" })
+      .min(0, { error: "El porcentaje no puede ser negativo" })
+      .max(100, { error: "El porcentaje no puede superar el 100" })
+      .optional(),
+  ),
+  notes: optionalText(2000),
+});
+
+export type SettlementFormInput = z.infer<typeof settlementSchema>;
+
+export const settlementExpenseSchema = z.object({
+  concept: z
+    .string()
+    .trim()
+    .min(1, { error: "Indicá el concepto del gasto" })
+    .max(120, { error: "El concepto no puede superar los 120 caracteres" }),
+  amount: positiveAmountField,
+  type: z.enum(["gasto", "adicional"], { error: "Seleccioná el tipo de item" }),
+});
+
+export type SettlementExpenseFormInput = z.infer<
+  typeof settlementExpenseSchema
+>;
+
+export const settlementPaidSchema = z.object({
+  paidDate: requiredDateField,
+  method: paymentMethodSchema,
+});
+
+export type SettlementPaidFormInput = z.infer<typeof settlementPaidSchema>;
+
+/** Invitation role: only admin or member (owner is never assignable). */
+export const inviteRoleField = z.enum(["admin", "member"], {
+  error: "Seleccioná un rol para la invitación",
+});
+
+export const inviteSchema = z.object({
+  email: emailField,
+  role: inviteRoleField,
+});
+
+export type InviteFormInput = z.infer<typeof inviteSchema>;

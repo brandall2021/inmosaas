@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   boolean,
   date,
@@ -106,6 +106,45 @@ export const sessions = pgTable(
   (table) => [
     uniqueIndex("sessions_token_hash_idx").on(table.tokenHash),
     index("sessions_user_idx").on(table.userId),
+  ],
+);
+
+export type InviteStatus = "pending" | "accepted" | "revoked";
+
+/**
+ * Single-use invitation to join a tenant. Like sessions, only the token's
+ * hash is stored — the raw token is shown exactly once (the shared link) and
+ * compared in memory when the link is resolved. The partial unique index
+ * rejects a second still-pending invite for the same email in the org.
+ */
+export const invites = pgTable(
+  "invites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    /** Always stored lowercase; matching is case-insensitive. */
+    email: text("email").notNull(),
+    role: text("role").$type<MembershipRole>().notNull().default("member"),
+    tokenHash: text("token_hash").notNull(),
+    status: text("status").$type<InviteStatus>().notNull().default("pending"),
+    invitedBy: uuid("invited_by").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("invites_token_hash_idx").on(table.tokenHash),
+    uniqueIndex("invites_org_email_pending_idx")
+      .on(table.organizationId, table.email)
+      .where(sql`status = 'pending'`),
   ],
 );
 
@@ -545,6 +584,110 @@ export const catalogEntries = pgTable(
       table.kind,
       table.name,
     ),
+  ],
+);
+
+export type SettlementStatus = "pendiente" | "pagada";
+
+export type SettlementItemType = "gasto" | "adicional";
+
+/**
+ * Owner settlement ("liquidación") of one rental for one period, identified by
+ * the contract and the `YYYY-MM` calendar month of the collected payments. The
+ * gross amount is frozen at creation time — later payments of the same period
+ * never mutate an already-created settlement. Owner/property/rental links are
+ * cleared (set null) when the linked record disappears so the settlement stays
+ * as history.
+ */
+export const settlements = pgTable(
+  "settlements",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    rentalId: uuid("rental_id").references(() => rentals.id, {
+      onDelete: "set null",
+    }),
+    propertyId: uuid("property_id").references(() => properties.id, {
+      onDelete: "set null",
+    }),
+    /** Owner client (type `propietario`); cleared if the client is deleted. */
+    ownerClientId: uuid("owner_client_id").references(() => clients.id, {
+      onDelete: "set null",
+    }),
+    /** Settlement period as `YYYY-MM` (payments attributed by paid date). */
+    period: text("period").notNull(),
+    grossAmount: numeric("gross_amount", {
+      precision: 14,
+      scale: 2,
+      mode: "number",
+    }).notNull(),
+    /** Owner fee percentage (0..100), editable per settlement. */
+    feePercent: numeric("fee_percent", {
+      precision: 5,
+      scale: 2,
+      mode: "number",
+    })
+      .notNull()
+      .default("0"),
+    currency: text("currency").$type<Currency>().notNull(),
+    status: text("status")
+      .$type<SettlementStatus>()
+      .notNull()
+      .default("pendiente"),
+    paidDate: date("paid_date"),
+    paidMethod: text("paid_method").$type<PaymentMethod>(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("settlements_organization_idx").on(table.organizationId),
+    index("settlements_org_status_idx").on(table.organizationId, table.status),
+    /** One settlement per contract and period. */
+    uniqueIndex("settlements_rental_period_idx").on(
+      table.rentalId,
+      table.period,
+    ),
+    index("settlements_owner_idx").on(table.ownerClientId),
+  ],
+);
+
+/**
+ * A single owner-passable item (gasto discounted from the net, adicional
+ * added); amounts are always positive, the type carries the sign.
+ */
+export const settlementExpenses = pgTable(
+  "settlement_expenses",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    settlementId: uuid("settlement_id")
+      .notNull()
+      .references(() => settlements.id, { onDelete: "cascade" }),
+    concept: text("concept").notNull(),
+    amount: numeric("amount", {
+      precision: 14,
+      scale: 2,
+      mode: "number",
+    }).notNull(),
+    type: text("type").$type<SettlementItemType>().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("settlement_expenses_settlement_idx").on(table.settlementId),
   ],
 );
 

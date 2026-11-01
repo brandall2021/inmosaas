@@ -8,5 +8,10 @@ export type ActionState =
       message?: string;
       errors?: Record<string, string[]>;
     }
-  | { success: true; message?: string }
+    | {
+      success: true;
+      message?: string;
+      /** Link whose raw token is shown exactly once (invite flow). */
+      inviteUrl?: string;
+    }
   | undefined;
