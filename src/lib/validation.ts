@@ -401,3 +401,38 @@ export const inviteSchema = z.object({
 });
 
 export type InviteFormInput = z.infer<typeof inviteSchema>;
+
+/** Receipt period as `YYYY-MM` (01..12 month only). */
+const receiptPeriodField = z
+  .string()
+  .min(7, { error: "Indicá el período del recibo" })
+  .regex(/^\d{4}-(0[1-9]|1[0-2])$/, { error: "Período inválido (AAAA-MM)" });
+
+const receiptDateField = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, { error: "Fecha inválida" });
+
+export const receiptSchema = z.object({
+  clientId: requiredIdField,
+  rentalId: optionalIdField,
+  period: receiptPeriodField,
+  amount: positiveAmountField,
+  currency: currencySchema,
+  method: paymentMethodSchema,
+  issuedDate: receiptDateField,
+  notes: optionalText(2000),
+});
+
+export type ReceiptFormInput = z.infer<typeof receiptSchema>;
+
+export const receiptPaidSchema = z.object({
+  paidDate: receiptDateField.optional(),
+});
+
+export type ReceiptPaidFormInput = z.infer<typeof receiptPaidSchema>;
+
+export const receiptVoidSchema = z.object({
+  reason: optionalText(500),
+});
+
+export type ReceiptVoidFormInput = z.infer<typeof receiptVoidSchema>;

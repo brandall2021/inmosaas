@@ -691,6 +691,70 @@ export const settlementExpenses = pgTable(
   ],
 );
 
+export type ReceiptStatus = "emitido" | "pagado" | "anulado";
+
+export type ReceiptMethod = PaymentMethod;
+
+/**
+ * Formal receipt issued to a tenant (inquilino) or owner (propietario),
+ optionally linked to a rental and to the generated PDF document. Amounts
+ are frozen at issuance time. Links are cleared (set null) when the linked
+ record disappears so the receipt stays as history.
+ */
+export const receipts = pgTable(
+  "receipts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    /** Recipient client (inquilino or propietario). */
+    clientId: uuid("client_id").references(() => clients.id, {
+      onDelete: "set null",
+    }),
+    /** Optional linked rental. */
+    rentalId: uuid("rental_id").references(() => rentals.id, {
+      onDelete: "set null",
+    }),
+    /** Optional linked generated PDF document. */
+    documentId: uuid("document_id").references(() => documents.id, {
+      onDelete: "set null",
+    }),
+    /** Receipt period as `YYYY-MM`. */
+    period: text("period").notNull(),
+    amount: numeric("amount", {
+      precision: 14,
+      scale: 2,
+      mode: "number",
+    }).notNull(),
+    currency: text("currency").$type<Currency>().notNull(),
+    method: text("method").$type<ReceiptMethod>().notNull(),
+    issuedDate: date("issued_date").notNull(),
+    paidDate: date("paid_date"),
+    status: text("status")
+      .$type<ReceiptStatus>()
+      .notNull()
+      .default("emitido"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("receipts_organization_idx").on(table.organizationId),
+    index("receipts_org_status_idx").on(table.organizationId, table.status),
+    index("receipts_client_idx").on(table.clientId),
+    index("receipts_org_client_period_idx").on(
+      table.organizationId,
+      table.clientId,
+      table.period,
+    ),
+  ],
+);
+
 export const usersRelations = relations(users, ({ many }) => ({
   memberships: many(memberships),
   sessions: many(sessions),

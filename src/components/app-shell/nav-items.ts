@@ -27,6 +27,7 @@ export const primaryNav: NavItem[] = [
   { title: "CRM", href: "/crm", icon: Contact },
   { title: "Catálogos", href: "/catalogos", icon: Library },
   { title: "Documentos", href: "/documentos", icon: FileText },
+  { title: "Recibos", href: "/recibos", icon: FileText },
 ];
 
 export const secondaryNav: NavItem[] = [
