@@ -17,9 +17,11 @@ type Alert = {
 export function AutomationAlerts({
   expiringRentals,
   propertiesWithoutImages,
+  pendingSettlements,
 }: {
   expiringRentals: number;
   propertiesWithoutImages: number;
+  pendingSettlements: number;
 }) {
   const alerts: Alert[] = [
     {
@@ -31,6 +33,11 @@ export function AutomationAlerts({
       label: "Propiedades sin fotos",
       value: propertiesWithoutImages,
       hint: "Publicaciones que todavía no tienen imágenes",
+    },
+    {
+      label: "Liquidaciones pendientes",
+      value: pendingSettlements,
+      hint: "Por confirmar el pago al propietario",
     },
   ];
 

@@ -6,6 +6,7 @@ export {
   updateSettlementExpenseAction,
   deleteSettlementExpenseAction,
   markSettlementPaidAction,
+  generateSettlementDocumentAction,
 } from "./actions";
 export {
   listSettlements,

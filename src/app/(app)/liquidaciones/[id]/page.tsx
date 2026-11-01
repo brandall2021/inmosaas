@@ -40,6 +40,7 @@ import {
   settlementItemTypeLabels,
   settlementMethodLabels,
   formatPeriod,
+  generateSettlementDocumentAction,
 } from "@/features/liquidaciones";
 import { formatDate } from "@/features/properties/constants";
 import {
@@ -223,9 +224,12 @@ export default async function SettlementDetailPage({
               </Button>
             )}
             {settlement.status === "pendiente" && (
-              <Button asChild className="w-full outline">
-                <Link href="/documentos/nuevo">Generar comprobante PDF</Link>
-              </Button>
+              <form action={generateSettlementDocumentAction}>
+                <input type="hidden" name="id" value={settlement.id} />
+                <Button type="submit" className="w-full outline">
+                  Generar comprobante PDF
+                </Button>
+              </form>
             )}
           </CardContent>
         </Card>

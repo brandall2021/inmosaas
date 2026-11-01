@@ -23,7 +23,12 @@ const UUID_PATTERN =
 
 export type SettlementRow = Settlement & {
   propertyTitle: string | null;
+  propertyAddress: string | null;
+  propertyCity: string | null;
+  propertyProvince: string | null;
   ownerName: string | null;
+  ownerEmail: string | null;
+  ownerPhone: string | null;
 };
 
 export type ExpenseRow = {
@@ -75,7 +80,12 @@ export async function listSettlements(
       createdAt: settlements.createdAt,
       updatedAt: settlements.updatedAt,
       propertyTitle: properties.title,
+      propertyAddress: properties.address,
+      propertyCity: properties.city,
+      propertyProvince: properties.province,
       ownerName: clients.name,
+      ownerEmail: clients.email,
+      ownerPhone: clients.phone,
     })
     .from(settlements)
     .leftJoin(properties, eq(settlements.propertyId, properties.id))
@@ -125,7 +135,12 @@ export async function getSettlement(
       createdAt: settlements.createdAt,
       updatedAt: settlements.updatedAt,
       propertyTitle: properties.title,
+      propertyAddress: properties.address,
+      propertyCity: properties.city,
+      propertyProvince: properties.province,
       ownerName: clients.name,
+      ownerEmail: clients.email,
+      ownerPhone: clients.phone,
     })
     .from(settlements)
     .leftJoin(properties, eq(settlements.propertyId, properties.id))

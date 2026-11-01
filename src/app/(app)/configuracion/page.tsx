@@ -5,6 +5,7 @@ import {
   IntegrationsForm,
 } from "@/features/configuracion";
 import { ALERT_EXPIRING_DAYS } from "@/features/configuracion/constants";
+import { countPendingSettlements } from "@/features/liquidaciones";
 import {
   countExpiringRentals,
   countPropertiesWithoutImages,
@@ -23,13 +24,14 @@ export default async function ConfiguracionPage() {
     return null;
   }
 
-  const [integration, activity, deliveries, expiringRentals, propertiesWithoutImages] =
+  const [integration, activity, deliveries, expiringRentals, propertiesWithoutImages, pendingSettlements] =
     await Promise.all([
       getIntegration(org.id),
       listActivity(org.id),
       listDeliveries(org.id),
       countExpiringRentals(org.id, ALERT_EXPIRING_DAYS),
       countPropertiesWithoutImages(org.id),
+      countPendingSettlements(org.id),
     ]);
 
   return (
@@ -48,6 +50,7 @@ export default async function ConfiguracionPage() {
       <AutomationAlerts
         expiringRentals={expiringRentals}
         propertiesWithoutImages={propertiesWithoutImages}
+        pendingSettlements={pendingSettlements}
       />
 
       <ActivityList entries={activity} />

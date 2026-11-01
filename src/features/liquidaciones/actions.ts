@@ -6,8 +6,17 @@ import { redirect } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
-import { clients, rentals, settlements, settlementExpenses } from "@/db/schema";
+import {
+  clients,
+  documents,
+  properties,
+  rentals,
+  settlements,
+  settlementExpenses,
+} from "@/db/schema";
 import { logActivity } from "@/features/configuracion/data";
+import { getProperty } from "@/features/properties/data";
+import { getClient } from "@/features/clients/data";
 import { getRentalLabel } from "@/features/alquileres/data";
 import type { ActionState } from "@/lib/action-state";
 import {
@@ -16,13 +25,20 @@ import {
   requireMembership,
   requireUser,
 } from "@/lib/dal";
+import { saveDocumentFile, deleteDocumentFile } from "@/lib/storage";
+import { PDF_MIME_TYPE } from "@/features/documentos/document-constants";
+import { buildSettlementPdf } from "@/features/documentos/pdf/settlement";
 import {
   settlementSchema,
   settlementExpenseSchema,
   settlementPaidSchema,
 } from "@/lib/validation";
 
-import { getSettlement } from "./data";
+import {
+  getSettlement,
+  listExpenses,
+  settlementSummary,
+} from "./data";
 
 async function getOrgSettlement(organizationId: string, settlementId: string) {
   const [settlement] = await db
@@ -544,4 +560,102 @@ export async function deleteSettlementAction(
 
   revalidatePath("/liquidaciones");
   redirect("/liquidaciones");
+}
+
+export async function generateSettlementDocumentAction(
+  _prevState: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireUser();
+  const org = await getActiveOrganization();
+  if (!org) {
+    redirect("/login");
+  }
+
+  await requireMembership(user.id, org.id);
+
+  const id = String(formData.get("id") ?? "");
+  const settlement = await getSettlement(org.id, id);
+  if (!settlement) {
+    return { success: false, message: "La liquidación no existe" };
+  }
+
+  const expenses = await listExpenses(org.id, id);
+  const summary = settlementSummary(settlement, expenses);
+
+  const property = settlement.propertyId
+    ? await getProperty(org.id, settlement.propertyId)
+    : null;
+  const owner = settlement.ownerClientId
+    ? await getClient(org.id, settlement.ownerClientId)
+    : null;
+
+  const pdf = await buildSettlementPdf({
+    organizationName: org.name,
+    period: settlement.period,
+    property: property
+      ? {
+          title: property.title,
+          address: property.address,
+          city: property.city,
+          province: property.province,
+        }
+      : null,
+    owner: owner
+      ? { name: owner.name, email: owner.email, phone: owner.phone }
+      : null,
+    grossAmount: summary.gross,
+    feePercent: Number(settlement.feePercent ?? 0),
+    feeAmount: summary.feeAmount,
+    expensesTotal: summary.expensesTotal,
+    additionsTotal: summary.additionsTotal,
+    net: summary.net,
+    currency: settlement.currency,
+    status: settlement.status,
+    paidDate: settlement.paidDate,
+    paidMethod: settlement.paidMethod,
+    items: expenses.map((e) => ({
+      concept: e.concept,
+      amount: e.amount,
+      type: e.type,
+    })),
+    notes: settlement.notes,
+  });
+
+  const storageKey = await saveDocumentFile(pdf, "pdf");
+
+  let created: { id: string };
+  try {
+    const [inserted] = await db
+      .insert(documents)
+      .values({
+        organizationId: org.id,
+        title: `Liquidación ${settlement.period} — ${settlement.ownerName ?? "propietario"}`.slice(0, 120),
+        type: "archivo",
+        storageKey,
+        mimeType: PDF_MIME_TYPE,
+        sizeBytes: pdf.length,
+        propertyId: settlement.propertyId ?? null,
+        clientId: settlement.ownerClientId ?? null,
+        rentalId: settlement.rentalId ?? null,
+      })
+      .returning({ id: documents.id });
+    created = inserted;
+  } catch (error) {
+    await deleteDocumentFile(storageKey);
+    throw error;
+  }
+
+  await auditInput({
+    organizationId: org.id,
+    actorId: user.id,
+    actorName: user.name,
+    action: "settlement.document_generated",
+    settlementId: settlement.id,
+    summary: `PDF ${settlement.period}`,
+  });
+
+  revalidatePath(`/liquidaciones/${settlement.id}`);
+  revalidatePath("/documentos");
+  redirect(`/documentos/${created.id}`);
 }
