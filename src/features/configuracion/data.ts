@@ -9,6 +9,7 @@ import {
   propertyImages,
   properties,
   rentals,
+  webhookDeliveries,
 } from "@/db/schema";
 
 export type ActivityRow = typeof activityLogs.$inferSelect;
@@ -58,7 +59,11 @@ export async function getIntegration(
 
 export async function saveIntegration(
   organizationId: string,
-  input: { webhookUrl: string | null; webhookEnabled: boolean },
+  input: {
+    webhookUrl: string | null;
+    webhookEnabled: boolean;
+    webhookSecret: string | null;
+  },
 ): Promise<IntegrationRow> {
   const now = new Date();
   const [row] = await db
@@ -67,6 +72,7 @@ export async function saveIntegration(
       organizationId,
       webhookUrl: input.webhookUrl,
       webhookEnabled: input.webhookEnabled,
+      webhookSecret: input.webhookSecret,
       createdAt: now,
       updatedAt: now,
     })
@@ -75,6 +81,7 @@ export async function saveIntegration(
       set: {
         webhookUrl: input.webhookUrl,
         webhookEnabled: input.webhookEnabled,
+        webhookSecret: input.webhookSecret,
         updatedAt: now,
       },
     })
@@ -92,6 +99,21 @@ export async function listActivity(
     .from(activityLogs)
     .where(eq(activityLogs.organizationId, organizationId))
     .orderBy(desc(activityLogs.createdAt), desc(activityLogs.id))
+    .limit(limit);
+}
+
+export type DeliveryRow = typeof webhookDeliveries.$inferSelect;
+
+/** Recent outgoing webhook attempts for the /configuracion log. */
+export async function listDeliveries(
+  organizationId: string,
+  limit = 10,
+): Promise<DeliveryRow[]> {
+  return db
+    .select()
+    .from(webhookDeliveries)
+    .where(eq(webhookDeliveries.organizationId, organizationId))
+    .orderBy(desc(webhookDeliveries.createdAt), desc(webhookDeliveries.id))
     .limit(limit);
 }
 

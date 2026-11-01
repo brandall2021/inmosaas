@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +24,16 @@ function FieldError({ messages }: { messages?: string[] }) {
   return <p className="text-sm text-destructive">{messages[0]}</p>;
 }
 
+/** Random hex secret filled client-side; visible while typing but the stored
+ * value is never sent back to the browser. */
+function generateSecret(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 export function IntegrationsForm({ integration }: { integration?: IntegrationRow }) {
   const [state, formAction, pending] = useActionState(
     saveIntegrationsAction,
@@ -31,6 +41,9 @@ export function IntegrationsForm({ integration }: { integration?: IntegrationRow
   );
   const errors = state && !state.success ? state.errors : undefined;
   const success = state && state.success ? state.message : undefined;
+  const [secretValue, setSecretValue] = useState("");
+  const [secretVisible, setSecretVisible] = useState(false);
+  const hasSecret = Boolean(integration?.webhookSecret);
 
   return (
     <Card>
@@ -58,6 +71,47 @@ export function IntegrationsForm({ integration }: { integration?: IntegrationRow
               un cliente, una tasación o un alquiler.
             </p>
             <FieldError messages={errors?.webhookUrl} />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="webhookSecret">Secreto de firma (opcional)</Label>
+            <div className="flex gap-2">
+              <Input
+                id="webhookSecret"
+                name="webhookSecret"
+                type={secretVisible ? "text" : "password"}
+                inputMode="text"
+                value={secretValue}
+                onChange={(event) => setSecretValue(event.target.value)}
+                placeholder={
+                  hasSecret ? "•••••••• (dejá vacío para conservar)" : "Sin firma"
+                }
+                autoComplete="off"
+                className="font-mono"
+              />
+              {secretValue !== "" ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setSecretVisible((visible) => !visible)}
+                >
+                  {secretVisible ? "Ocultar" : "Mostrar"}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setSecretValue(generateSecret())}
+                >
+                  Generar
+                </Button>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {hasSecret
+                ? "Existe un secreto guardado: no se vuelve a mostrar. Escribí uno nuevo para reemplazarlo."
+                : "Si lo definís, cada evento viaja firmado con el header X-InmoSaaS-Signature (HMAC-SHA256 del cuerpo)."}
+            </p>
           </div>
 
           <div className="flex items-center gap-3 rounded-md border p-3">

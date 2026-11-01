@@ -9,6 +9,7 @@ import { db } from "@/db";
 import { clients } from "@/db/schema";
 import { logActivity } from "@/features/configuracion/data";
 import type { ActionState } from "@/lib/action-state";
+import { enqueueWebhook } from "@/lib/webhook";
 import {
   getActiveOrganization,
   hasRole,
@@ -60,6 +61,10 @@ export async function createClientAction(
     summary: parsed.data.name,
   });
 
+  void enqueueWebhook(org.id, "client.created", created.id, {
+    ...parsed.data,
+  });
+
   revalidatePath("/crm");
   revalidatePath("/dashboard");
   redirect(`/crm/${created.id}`);
@@ -107,6 +112,10 @@ export async function updateClientAction(
     summary: parsed.data.name,
   });
 
+  void enqueueWebhook(org.id, "client.updated", updated.id, {
+    ...parsed.data,
+  });
+
   revalidatePath("/crm");
   revalidatePath(`/crm/${id}`);
   revalidatePath("/dashboard");
@@ -142,6 +151,10 @@ export async function deleteClientAction(formData: FormData): Promise<void> {
         entityType: "client",
         entityId: id,
         summary: deleted.name,
+      });
+
+      void enqueueWebhook(org.id, "client.deleted", id, {
+        name: deleted.name,
       });
     }
   }

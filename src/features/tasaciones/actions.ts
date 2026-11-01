@@ -9,6 +9,7 @@ import { db } from "@/db";
 import { valuations } from "@/db/schema";
 import { logActivity } from "@/features/configuracion/data";
 import type { ActionState } from "@/lib/action-state";
+import { enqueueWebhook } from "@/lib/webhook";
 import {
   getActiveOrganization,
   hasRole,
@@ -61,6 +62,10 @@ export async function createValuationAction(
     summary: parsed.data.title,
   });
 
+  void enqueueWebhook(org.id, "valuation.created", created.id, {
+    ...parsed.data,
+  });
+
   revalidatePath("/tasaciones");
   revalidatePath("/dashboard");
   redirect(`/tasaciones/${created.id}`);
@@ -108,6 +113,10 @@ export async function updateValuationAction(
     summary: parsed.data.title,
   });
 
+  void enqueueWebhook(org.id, "valuation.updated", updated.id, {
+    ...parsed.data,
+  });
+
   revalidatePath("/tasaciones");
   revalidatePath(`/tasaciones/${id}`);
   revalidatePath("/dashboard");
@@ -145,6 +154,10 @@ export async function deleteValuationAction(formData: FormData): Promise<void> {
         entityType: "valuation",
         entityId: id,
         summary: deleted.title,
+      });
+
+      void enqueueWebhook(org.id, "valuation.deleted", id, {
+        title: deleted.title,
       });
     }
   }

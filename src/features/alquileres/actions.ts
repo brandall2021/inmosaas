@@ -9,6 +9,7 @@ import { db } from "@/db";
 import { rentals } from "@/db/schema";
 import { logActivity } from "@/features/configuracion/data";
 import type { ActionState } from "@/lib/action-state";
+import { enqueueWebhook } from "@/lib/webhook";
 import {
   getActiveOrganization,
   hasRole,
@@ -82,6 +83,10 @@ export async function createRentalAction(
     summary: (await getRentalLabel(org.id, created.id)) ?? "Alquiler",
   });
 
+  void enqueueWebhook(org.id, "rental.created", created.id, {
+    ...parsed.data,
+  });
+
   revalidatePath("/alquileres");
   revalidatePath("/dashboard");
   redirect(`/alquileres/${created.id}`);
@@ -139,6 +144,10 @@ export async function updateRentalAction(
     summary: (await getRentalLabel(org.id, updated.id)) ?? "Alquiler",
   });
 
+  void enqueueWebhook(org.id, "rental.updated", updated.id, {
+    ...parsed.data,
+  });
+
   revalidatePath("/alquileres");
   revalidatePath(`/alquileres/${id}`);
   revalidatePath("/dashboard");
@@ -164,7 +173,14 @@ export async function deleteRentalAction(formData: FormData): Promise<void> {
     const [deleted] = await db
       .delete(rentals)
       .where(and(eq(rentals.id, id), eq(rentals.organizationId, org.id)))
-      .returning({ id: rentals.id });
+      .returning({
+        id: rentals.id,
+        startDate: rentals.startDate,
+        endDate: rentals.endDate,
+        rentAmount: rentals.rentAmount,
+        currency: rentals.currency,
+        status: rentals.status,
+      });
 
     if (deleted) {
       await logActivity({
@@ -175,6 +191,14 @@ export async function deleteRentalAction(formData: FormData): Promise<void> {
         entityType: "rental",
         entityId: id,
         summary: label ?? "Alquiler",
+      });
+
+      void enqueueWebhook(org.id, "rental.deleted", id, {
+        startDate: deleted.startDate,
+        endDate: deleted.endDate,
+        rentAmount: deleted.rentAmount,
+        currency: deleted.currency,
+        status: deleted.status,
       });
     }
   }

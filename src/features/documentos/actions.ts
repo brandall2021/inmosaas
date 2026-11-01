@@ -12,6 +12,7 @@ import { getClient } from "@/features/clients/data";
 import { logActivity } from "@/features/configuracion/data";
 import { getProperty } from "@/features/properties/data";
 import type { ActionState } from "@/lib/action-state";
+import { enqueueWebhook } from "@/lib/webhook";
 import {
   getActiveOrganization,
   hasRole,
@@ -146,6 +147,16 @@ export async function createDocumentUploadAction(
     summary: parsed.data.title,
   });
 
+  void enqueueWebhook(org.id, "document.created", created.id, {
+    title: parsed.data.title,
+    type: "archivo",
+    mimeType,
+    sizeBytes: file.size,
+    propertyId: propertyId ?? null,
+    clientId: clientId ?? null,
+    rentalId: rentalId ?? null,
+  });
+
   revalidatePath("/documentos");
   revalidatePath("/dashboard");
   redirect(`/documentos/${created.id}`);
@@ -239,6 +250,12 @@ export async function generateContractAction(
     entityType: "document",
     entityId: created.id,
     summary: title,
+  });
+
+  void enqueueWebhook(org.id, "document.created", created.id, {
+    title,
+    type: "contrato_alquiler",
+    rentalId: rental.id,
   });
 
   revalidatePath("/documentos");
@@ -336,6 +353,11 @@ export async function generateProposalAction(
     summary: title,
   });
 
+  void enqueueWebhook(org.id, "document.created", created.id, {
+    title,
+    type: "propuesta",
+  });
+
   revalidatePath("/documentos");
   revalidatePath(`/propiedades/${property.id}`);
   revalidatePath("/dashboard");
@@ -377,6 +399,11 @@ export async function deleteDocumentAction(formData: FormData): Promise<void> {
           entityType: "document",
           entityId: id,
           summary: row.document.title,
+        });
+
+        void enqueueWebhook(org.id, "document.deleted", id, {
+          title: row.document.title,
+          type: row.document.type,
         });
       }
     }

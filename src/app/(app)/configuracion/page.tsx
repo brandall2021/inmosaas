@@ -1,6 +1,7 @@
 import {
   ActivityList,
   AutomationAlerts,
+  DeliveriesList,
   IntegrationsForm,
 } from "@/features/configuracion";
 import { ALERT_EXPIRING_DAYS } from "@/features/configuracion/constants";
@@ -9,6 +10,7 @@ import {
   countPropertiesWithoutImages,
   getIntegration,
   listActivity,
+  listDeliveries,
 } from "@/features/configuracion/data";
 import { getActiveOrganization, requireUser } from "@/lib/dal";
 
@@ -21,10 +23,11 @@ export default async function ConfiguracionPage() {
     return null;
   }
 
-  const [integration, activity, expiringRentals, propertiesWithoutImages] =
+  const [integration, activity, deliveries, expiringRentals, propertiesWithoutImages] =
     await Promise.all([
       getIntegration(org.id),
       listActivity(org.id),
+      listDeliveries(org.id),
       countExpiringRentals(org.id, ALERT_EXPIRING_DAYS),
       countPropertiesWithoutImages(org.id),
     ]);
@@ -39,6 +42,8 @@ export default async function ConfiguracionPage() {
       </div>
 
       <IntegrationsForm integration={integration ?? undefined} />
+
+      <DeliveriesList deliveries={deliveries} />
 
       <AutomationAlerts
         expiringRentals={expiringRentals}

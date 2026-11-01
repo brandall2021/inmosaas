@@ -290,6 +290,7 @@ export const integrationSchema = z
         .optional(),
     ),
     webhookEnabled: z.boolean().default(false),
+    webhookSecret: optionalText(128),
   })
   .refine((data) => !data.webhookEnabled || Boolean(data.webhookUrl), {
     error: "Completá la URL del webhook para activarlo",

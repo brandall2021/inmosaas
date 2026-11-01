@@ -463,6 +463,11 @@ export const integrations = pgTable(
       .references(() => organizations.id, { onDelete: "cascade" }),
     webhookUrl: text("webhook_url"),
     webhookEnabled: boolean("webhook_enabled").notNull().default(false),
+    /**
+     * Optional HMAC secret: when set, outgoing deliveries carry an
+     * `X-InmoSaaS-Signature` header (HMAC-SHA256 of the raw body).
+     */
+    webhookSecret: text("webhook_secret"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -472,6 +477,38 @@ export const integrations = pgTable(
   },
   (table) => [
     uniqueIndex("integrations_organization_idx").on(table.organizationId),
+  ],
+);
+
+/**
+ * Log of outgoing webhook attempts, one row per delivery (the payload is
+ * snapshotted). Indexed so /configuracion can render the recent log quickly.
+ */
+export const webhookDeliveries = pgTable(
+  "webhook_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    event: text("event").notNull(),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    attempt: integer("attempt").notNull().default(1),
+    httpStatus: integer("http_status"),
+    error: text("error"),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("webhook_deliveries_org_created_idx").on(
+      table.organizationId,
+      table.createdAt,
+    ),
   ],
 );
 

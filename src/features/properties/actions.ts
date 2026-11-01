@@ -10,6 +10,7 @@ import { properties, propertyImages } from "@/db/schema";
 import { listCatalogFormOptions } from "@/features/catalogos/data";
 import { logActivity } from "@/features/configuracion/data";
 import type { ActionState } from "@/lib/action-state";
+import { enqueueWebhook } from "@/lib/webhook";
 import {
   getActiveOrganization,
   hasRole,
@@ -144,6 +145,10 @@ export async function createPropertyAction(
     summary: `${parsed.data.title} (${parsed.data.operation})`,
   });
 
+  void enqueueWebhook(org.id, "property.created", created.id, {
+    ...parsed.data,
+  });
+
   revalidatePath("/propiedades");
   revalidatePath("/dashboard");
   redirect(`/propiedades/${created.id}`);
@@ -221,6 +226,10 @@ export async function updatePropertyAction(
     summary: `${parsed.data.title} (${parsed.data.operation})`,
   });
 
+  void enqueueWebhook(org.id, "property.updated", updated.id, {
+    ...parsed.data,
+  });
+
   revalidatePath("/propiedades");
   revalidatePath(`/propiedades/${id}`);
   revalidatePath("/dashboard");
@@ -259,6 +268,10 @@ export async function deletePropertyAction(formData: FormData): Promise<void> {
         entityType: "property",
         entityId: id,
         summary: deleted.title,
+      });
+
+      void enqueueWebhook(org.id, "property.deleted", id, {
+        title: deleted.title,
       });
     }
   }
