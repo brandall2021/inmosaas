@@ -8,26 +8,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   listSettlements,
   countPendingSettlements,
   settlementStatusLabels,
-  settlementMethodLabels,
   SETTLEMENT_STATUSES,
   formatPeriod,
 } from "@/features/liquidaciones";
 import { formatPrice } from "@/features/properties/constants";
 import { getActiveOrganization, requireUser } from "@/lib/dal";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 
 export const instant = false;
 
@@ -47,7 +38,7 @@ export default async function LiquidacionesPage({
   const ownerFilter = params.propietario ?? "";
 
   const settlements = await listSettlements(org.id, {
-    status: statusFilter === "todas" ? undefined : statusFilter,
+    status: statusFilter === "todas" ? undefined : (statusFilter as "pendiente" | "pagada"),
     ownerId: ownerFilter || undefined,
   });
 
@@ -119,8 +110,12 @@ export default async function LiquidacionesPage({
             className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             {SETTLEMENT_STATUSES.map((option) => (
-              <option key={option.value} value={option.value} disabled={statusFilter === "todas" && option.value === "todas"}>
-                {statusFilter === "todas" && option.value === "todas" ? "Todas" : settlementStatusLabels[option.value]}
+              <option
+                key={option.value}
+                value={option.value}
+                disabled={false}
+              >
+                {settlementStatusLabels[option.value as keyof typeof settlementStatusLabels]}
               </option>
             ))}
             <option value="todas">Todas</option>
@@ -154,53 +149,57 @@ export default async function LiquidacionesPage({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button asChild>
+            <Button>
               <Link href="/liquidaciones/nuevo">Crear liquidación</Link>
             </Button>
           </CardContent>
         </Card>
       ) : (
         <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Período</TableHead>
-                <TableHead className="text-right">Propietario</TableHead>
-                <TableHead className="text-right">Propiedad</TableHead>
-                <TableHead className="text-right">Bruto</TableHead>
-                <TableHead className="text-right">Honorarios</TableHead>
-                <TableHead className="text-right">Neto</TableHead>
-                <TableHead className="text-right">Estado</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="border-b text-left text-muted-foreground">
+                <th className="py-2 pr-3 font-medium">Período</th>
+                <th className="py-2 pr-3 font-medium text-right">Propietario</th>
+                <th className="py-2 pr-3 font-medium text-right">Propiedad</th>
+                <th className="py-2 pr-3 font-medium text-right">Bruto</th>
+                <th className="py-2 pr-3 font-medium text-right">Honorarios</th>
+                <th className="py-2 pr-3 font-medium text-right">Neto</th>
+                <th className="py-2 pr-3 font-medium text-right">Estado</th>
+                <th className="py-2 text-right font-medium">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
               {settlements.map((settlement) => (
-                <TableRow key={settlement.id} className="border-b last:border-b-0">
-                  <TableCell className="font-medium">
+                <tr key={settlement.id} className="border-b last:border-b-0">
+                  <td className="py-2 pr-3 font-medium">
                     {formatPeriod(settlement.period)}
-                  </TableCell>
-                  <TableCell className="text-right">{settlement.ownerName ?? "—"}</TableCell>
-                  <TableCell className="text-right">{settlement.propertyTitle ?? "—"}</TableCell>
-                  <TableCell className="text-right font-medium">
+                  </td>
+                  <td className="py-2 pr-3 text-right">
+                    {settlement.ownerName ?? "—"}
+                  </td>
+                  <td className="py-2 pr-3 text-right">
+                    {settlement.propertyTitle ?? "—"}
+                  </td>
+                  <td className="py-2 pr-3 font-medium text-right">
                     {formatPrice(Number(settlement.grossAmount), settlement.currency)}
-                  </TableCell>
-                  <TableCell className="text-right">
+                  </td>
+                  <td className="py-2 pr-3 text-right">
                     {formatPrice(
                       Number(settlement.grossAmount) *
                         (Number(settlement.feePercent ?? 0) / 100),
                       settlement.currency,
                     )}
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
+                  </td>
+                  <td className="py-2 pr-3 font-medium text-right">
                     {formatPrice(
                       Number(settlement.grossAmount) -
                         Number(settlement.grossAmount) *
                           (Number(settlement.feePercent ?? 0) / 100),
                       settlement.currency,
                     )}
-                  </TableCell>
-                  <TableCell className="text-right">
+                  </td>
+                  <td className="py-2 pr-3 text-right">
                     <span
                       className={cn(
                         "inline-flex items-center rounded-full border px-2 py text-xs font-medium",
@@ -209,21 +208,21 @@ export default async function LiquidacionesPage({
                           : "border-orange/20 bg-orange/5 text-orange-600",
                       )}
                     >
-                      {settlementStatusLabels[settlement.status]}
+                      {settlementStatusLabels[settlement.status as keyof typeof settlementStatusLabels]}
                     </span>
-                  </TableCell>
-                  <TableCell className="text-right">
+                  </td>
+                  <td className="py-2 text-right">
                     <Link
                       href={`/liquidaciones/${settlement.id}`}
                       className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
                     >
                       Ver
                     </Link>
-                  </TableCell>
-                </TableRow>
+                  </td>
+                </tr>
               ))}
-            </TableBody>
-          </Table>
+            </tbody>
+          </table>
         </div>
       )}
     </div>

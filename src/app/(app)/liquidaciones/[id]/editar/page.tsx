@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import {
   Button,
@@ -9,6 +9,7 @@ import {
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -24,8 +25,6 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 
 import { updateSettlementAction } from "@/features/liquidaciones/actions";
-import { formatPeriod } from "@/features/liquidaciones/constants";
-import { formatPrice } from "@/features/properties/constants";
 import { clients, rentals, settlements } from "@/db/schema";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
@@ -114,7 +113,12 @@ export default async function EditSettlementPage({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={updateSettlementAction} className="space-y-6">
+          <form
+            action={async (formData: FormData) => {
+              await updateSettlementAction(undefined, formData);
+            }}
+            className="space-y-6"
+          >
             <input type="hidden" name="id" value={settlement.id} />
 
             <div className="grid gap-4 sm:grid-cols-2">

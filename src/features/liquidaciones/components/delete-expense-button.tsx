@@ -8,11 +8,11 @@ import { deleteSettlementExpenseAction } from "../actions";
 
 export function DeleteExpenseButton({
   id,
-  settlementId,
+  _settlementId,
   disabled = false,
 }: {
   id: string;
-  settlementId: string;
+  _settlementId: string;
   disabled?: boolean;
 }) {
   return (

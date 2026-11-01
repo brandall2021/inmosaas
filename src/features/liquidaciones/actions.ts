@@ -9,7 +9,6 @@ import { db } from "@/db";
 import {
   clients,
   documents,
-  properties,
   rentals,
   settlements,
   settlementExpenses,
@@ -106,10 +105,6 @@ export async function createSettlementAction(
 
   // The rental and the owner must belong to this organization (the id alone is
   // never enough). Owner is also validated as client type `propietario`.
-  const [rental] = await db
-    .select({ id: settlements.rentalId })
-    .from(settlements)
-    .limit(1);
   const [owner] = await db
     .select({ id: clients.id, type: clients.type })
     .from(clients)
@@ -125,7 +120,7 @@ export async function createSettlementAction(
   }
 
   const [rentalRow] = await db
-    .select({ id: rentals.id, currency: rentals.currency })
+    .select({ id: rentals.id, propertyId: rentals.propertyId, currency: rentals.currency })
     .from(rentals)
     .where(
       and(
@@ -198,7 +193,7 @@ export async function updateSettlementAction(
     redirect("/login");
   }
 
-  const role = await requireMembership(user.id, org.id);
+  await requireMembership(user.id, org.id);
   const id = String(formData.get("id") ?? "");
   const settlement = id ? await getOrgSettlement(org.id, id) : null;
   if (!settlement) {
@@ -236,7 +231,7 @@ export async function updateSettlementAction(
   }
 
   const [rentalRow] = await db
-    .select({ id: rentals.id, currency: rentals.currency })
+    .select({ id: rentals.id, propertyId: rentals.propertyId, currency: rentals.currency })
     .from(rentals)
     .where(
       and(

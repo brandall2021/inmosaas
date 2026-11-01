@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, count, desc, eq, sql, sum } from "drizzle-orm";
+import { and, asc, count, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -9,19 +9,14 @@ import {
   rentalPayments,
   settlementExpenses,
   settlements,
-  type Settlement,
   type SettlementItemType,
 } from "@/db/schema";
-import {
-  settlementItemTypeLabels,
-  settlementStatusLabels,
-} from "./constants";
 import { formatPrice } from "@/features/properties/constants";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export type SettlementRow = Settlement & {
+export type SettlementRow = typeof settlements.$inferSelect & {
   propertyTitle: string | null;
   propertyAddress: string | null;
   propertyCity: string | null;
@@ -49,7 +44,7 @@ export type SettlementSummary = {
 export async function listSettlements(
   organizationId: string,
   filters: {
-    status?: string;
+    status?: "pendiente" | "pagada";
     ownerId?: string;
   } = {},
 ): Promise<SettlementRow[]> {
@@ -193,7 +188,7 @@ export async function suggestGrossForPeriod(
       and(
         eq(rentalPayments.organizationId, organizationId),
         eq(rentalPayments.rentalId, rentalId),
-        sql`date_trunc('month', ${rentalPayments.paid_date}) = ${new Date(
+        sql`date_trunc('month', ${rentalPayments.paidDate}) = ${new Date(
           `${period}-01`,
         ).toISOString()}`,
       ),
@@ -226,7 +221,10 @@ export function settlementSummary(row: SettlementRow, expenses: ExpenseRow[]): S
   };
 }
 
-export function formatSummary(summary: SettlementSummary, currency: string): string {
+export function formatSummary(
+  summary: SettlementSummary,
+  currency: "ARS" | "USD",
+): string {
   return [
     `Bruto: ${formatPrice(summary.gross, currency)}`,
     `Honorarios: ${formatPrice(summary.feeAmount, currency)}`,

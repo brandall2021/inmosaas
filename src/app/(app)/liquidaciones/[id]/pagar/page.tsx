@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, CalendarDays, CreditCard } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import {
   Button,
@@ -9,6 +9,7 @@ import {
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -25,7 +26,6 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { markSettlementPaidAction } from "@/features/liquidaciones/actions";
 import { formatPrice } from "@/features/properties/constants";
-import { formatDate } from "@/features/properties/constants";
 import { getSettlement } from "@/features/liquidaciones/data";
 import { SETTLEMENT_METHODS } from "@/features/liquidaciones/constants";
 import { getActiveOrganization, hasRole, requireMembership, requireUser } from "@/lib/dal";
@@ -82,7 +82,12 @@ export default async function PaySettlementPage({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form action={markSettlementPaidAction} className="space-y-4">
+          <form
+            action={async (formData: FormData) => {
+              await markSettlementPaidAction(undefined, formData);
+            }}
+            className="space-y-4"
+          >
             <input type="hidden" name="id" value={settlement.id} />
 
             <div className="space-y-2">

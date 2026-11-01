@@ -1,16 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type { ReactNode } from "react";
 import {
   ArrowLeft,
-  CalendarDays,
-  FileText,
-  LayoutList,
   Pencil,
-  Plus,
-  Trash2,
   User,
-  Building2,
 } from "lucide-react";
 
 import {
@@ -24,25 +17,17 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   getSettlement,
   listExpenses,
   settlementSummary,
-  formatPrice,
   settlementStatusLabels,
   settlementItemTypeLabels,
   settlementMethodLabels,
   formatPeriod,
   generateSettlementDocumentAction,
 } from "@/features/liquidaciones";
-import { formatDate } from "@/features/properties/constants";
+import { formatDate } from "@/features/alquileres/constants";
+import { formatPrice } from "@/features/properties/constants";
 import {
   getActiveOrganization,
   hasRole,
@@ -102,7 +87,7 @@ export default async function SettlementDetailPage({
                 : "border-orange/20 bg-orange/5 text-orange-600",
             )}
           >
-            {settlementStatusLabels[settlement.status]}
+            {settlementStatusLabels[settlement.status as keyof typeof settlementStatusLabels]}
           </span>
           <h1 className="text-2xl font-semibold tracking-tight">
             Liquidación {settlement.period}
@@ -196,12 +181,12 @@ export default async function SettlementDetailPage({
               {settlement.paidMethod ? (
                 <div className="flex justify-between">
                   <dt className="text-muted-foreground">Método de pago</dt>
-                  <dd>{settlementMethodLabels[settlement.paidMethod]}</dd>
+                  <dd>{settlementMethodLabels[settlement.paidMethod as keyof typeof settlementMethodLabels]}</dd>
                 </div>
               ) : null}
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Estado</dt>
-                <dd>{settlementStatusLabels[settlement.status]}</dd>
+                <dd>{settlementStatusLabels[settlement.status as keyof typeof settlementStatusLabels]}</dd>
               </div>
             </dl>
           </CardContent>
@@ -213,20 +198,13 @@ export default async function SettlementDetailPage({
           </CardHeader>
           <CardContent className="space-y-2">
             {settlement.status === "pendiente" && canManage && (
-              <Button
-                asChild
-                className="w-full"
-                disabled={settlement.status === "pagada"}
+              <form
+                action={async (formData: FormData) => {
+                  await generateSettlementDocumentAction(undefined, formData);
+                }}
               >
-                <Link href={`/liquidaciones/${settlement.id}/pagar`}>
-                  Confirmar pago al propietario
-                </Link>
-              </Button>
-            )}
-            {settlement.status === "pendiente" && (
-              <form action={generateSettlementDocumentAction}>
                 <input type="hidden" name="id" value={settlement.id} />
-                <Button type="submit" className="w-full outline">
+                <Button type="submit" className="w-full">
                   Generar comprobante PDF
                 </Button>
               </form>
@@ -246,47 +224,47 @@ export default async function SettlementDetailPage({
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Concepto</TableHead>
-                    <TableHead className="text-right">Tipo</TableHead>
-                    <TableHead className="text-right">Monto</TableHead>
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="py-2 pr-3 font-medium">Concepto</th>
+                    <th className="py-2 pr-3 font-medium text-right">Tipo</th>
+                    <th className="py-2 pr-3 font-medium text-right">Monto</th>
                     {canEdit ? (
-                      <TableHead className="text-right">Acciones</TableHead>
+                      <th className="py-2 text-right font-medium">Acciones</th>
                     ) : null}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+                  </tr>
+                </thead>
+                <tbody>
                   {expenses.map((expense) => (
-                    <TableRow
+                    <tr
                       key={expense.id}
                       className="border-b last:border-b-0"
                     >
-                      <TableCell className="font-medium">
+                      <td className="py-2 pr-3 font-medium">
                         {expense.concept}
-                      </TableCell>
-                      <TableCell className="text-right">
+                      </td>
+                      <td className="py-2 pr-3 text-right">
                         <span className={cn("text-xs font-medium", expense.type === "gasto" ? "text-destructive" : "text-success")}>
-                          {settlementItemTypeLabels[expense.type]}
+                          {settlementItemTypeLabels[expense.type as keyof typeof settlementItemTypeLabels]}
                         </span>
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
+                      </td>
+                      <td className="py-2 pr-3 font-medium text-right">
                         {formatPrice(expense.amount, settlement.currency)}
-                      </TableCell>
+                      </td>
                       {canEdit ? (
-                        <TableCell className="text-right">
+                        <td className="py-2 text-right">
                           <EditExpenseForm
                             expense={expense}
                             settlementId={settlement.id}
                           />
-                          <DeleteExpenseButton id={expense.id} settlementId={settlement.id} />
-                        </TableCell>
+                          <DeleteExpenseButton id={expense.id} _settlementId={settlement.id} />
+                        </td>
                       ) : null}
-                    </TableRow>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
+                </tbody>
+              </table>
             </div>
           )}
         </CardContent>

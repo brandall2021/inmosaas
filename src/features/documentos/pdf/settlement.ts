@@ -2,8 +2,6 @@ import "server-only";
 
 import PDFDocument from "pdfkit";
 
-import type { Settlement } from "@/db/schema";
-
 const NOT_INFORMED = "No informado";
 
 function value(input: string | null | undefined): string {

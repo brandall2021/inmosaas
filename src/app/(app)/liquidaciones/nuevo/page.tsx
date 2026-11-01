@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, CalendarDays, Plus, User } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import {
   Button,
@@ -9,6 +8,7 @@ import {
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -26,12 +26,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { createSettlementAction } from "@/features/liquidaciones/actions";
 import {
   currentPeriod,
-  formatPeriod,
 } from "@/features/liquidaciones/constants";
 import { suggestGrossForPeriod } from "@/features/liquidaciones/data";
 import { formatPrice } from "@/features/properties/constants";
 import { clients, rentals } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { db } from "@/db";
 import { getActiveOrganization, requireUser } from "@/lib/dal";
 import { cn } from "@/lib/utils";
@@ -68,7 +67,7 @@ export default async function NewSettlementPage({
 }: {
   searchParams: Promise<{ rentalId?: string; ownerId?: string; period?: string }>;
 }) {
-  const user = await requireUser();
+  await requireUser();
   const org = await getActiveOrganization();
   if (!org) {
     return null;
@@ -116,7 +115,12 @@ export default async function NewSettlementPage({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={createSettlementAction} className="space-y-6">
+          <form
+            action={async (formData: FormData) => {
+              await createSettlementAction(undefined, formData);
+            }}
+            className="space-y-6"
+          >
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="rental-id">Alquiler</Label>

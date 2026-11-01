@@ -630,7 +630,7 @@ export const settlements = pgTable(
       mode: "number",
     })
       .notNull()
-      .default("0"),
+      .default(0),
     currency: text("currency").$type<Currency>().notNull(),
     status: text("status")
       .$type<SettlementStatus>()
