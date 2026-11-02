@@ -23,6 +23,12 @@ import { formatDate } from "@/features/alquileres/constants";
 import { getRental } from "@/features/alquileres/data";
 import { formatPrice } from "@/features/properties/constants";
 import {
+  listIndexEntries,
+  listPenalties,
+  rentalIndexTypeLabels,
+  rentalPenaltyStatusLabels,
+} from "@/features/rental-indexing";
+import {
   getActiveOrganization,
   hasRole,
   requireMembership,
@@ -69,9 +75,11 @@ export default async function AlquilerDetallePage({
   const { rental, propertyTitle, clientName } = row;
 
   const role = await requireMembership(user.id, org.id);
-  const [payments, summary] = await Promise.all([
+  const [payments, summary, indexEntries, penalties] = await Promise.all([
     listPayments(org.id, rental.id),
     getPaymentSummary(org.id, rental.id),
+    listIndexEntries(org.id, rental.id),
+    listPenalties(org.id, rental.id, undefined),
   ]);
   const periodMonths = rentalPeriodMonths(rental.startDate, rental.endDate);
   const editing = editarPago
@@ -250,6 +258,159 @@ export default async function AlquilerDetallePage({
               </table>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Ajustes de índice y punitorios</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="p-3 rounded-lg bg-muted/50 border">
+                <p className="text-xs text-muted-foreground">Índice de ajuste</p>
+                <p className="font-medium">
+                  {rentalIndexTypeLabels[rental.indexType as keyof typeof rentalIndexTypeLabels]}
+                </p>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/50 border">
+                <p className="text-xs text-muted-foreground">Día de ajuste</p>
+                <p className="font-medium">
+                  {rental.adjustmentDay ?? "—"}
+                </p>
+              </div>
+              <div className="p-3 rounded-lg bg-muted/50 border">
+                <p className="text-xs text-muted-foreground">Punitorio diario</p>
+                <p className="font-medium">
+                  {rental.penaltyRate !== null
+                    ? `${rental.penaltyRate}%`
+                    : "—"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Ajustes aplicados</h2>
+              {canManage && (
+                <Link
+                  href={`/alquileres/${rental.id}/ajustes/nuevo`}
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                >
+                  Aplicar ajuste
+                </Link>
+              )}
+            </div>
+            {indexEntries.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No hay ajustes de índice registrados todavía.
+              </p>
+            ) : (
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="py-2 pr-3 font-medium">Fecha</th>
+                    <th className="py-2 pr-3 font-medium text-right">Índice</th>
+                    <th className="py-2 pr-3 font-medium text-right">Monto anterior</th>
+                    <th className="py-2 pr-3 font-medium text-right">Monto nuevo</th>
+                    <th className="py-2 pr-3 font-medium text-right">Valor base</th>
+                    <th className="py-2 pr-3 font-medium text-right">Valor nuevo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {indexEntries.slice(0, 5).map((entry) => (
+                    <tr key={entry.id} className="border-b last:border-b-0">
+                      <td className="py-2 pr-3">
+                        {new Date(entry.appliedDate).toLocaleDateString("es-AR")}
+                      </td>
+                      <td className="py-2 pr-3 text-right">
+                        {entry.indexType}
+                      </td>
+                      <td className="py-2 pr-3 text-right">
+                        {formatPrice(Number(entry.previousRent), rental.currency)}
+                      </td>
+                      <td className="py-2 pr-3 text-right">
+                        {formatPrice(Number(entry.newRent), rental.currency)}
+                      </td>
+                      <td className="py-2 pr-3 text-right">
+                        {Number(entry.baseIndexValue).toLocaleString("es-AR")}
+                      </td>
+                      <td className="py-2 pr-3 text-right">
+                        {Number(entry.newIndexValue).toLocaleString("es-AR")}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            <div className="mt-6 flex items-center justify-between">
+              <h2 className="text-sm font-semibold">Punitorios por mora</h2>
+              {canManage && (
+                <Link
+                  href={`/alquileres/${rental.id}/ajustes/nuevo?tipo=penalty`}
+                  className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+                >
+                  Registrar punitorio
+                </Link>
+              )}
+            </div>
+            {penalties.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No hay punitorios registrados todavía.
+              </p>
+            ) : (
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="py-2 pr-3 font-medium">Fecha de cálculo</th>
+                    <th className="py-2 pr-3 font-medium text-right">Monto adeudado</th>
+                    <th className="py-2 pr-3 font-medium text-right">Días mora</th>
+                    <th className="py-2 pr-3 font-medium text-right">Punitorio</th>
+                    <th className="py-2 pr-3 font-medium text-right">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {penalties.slice(0, 5).map((penalty) => (
+                    <tr key={penalty.id} className="border-b last:border-b-0">
+                      <td className="py-2 pr-3">
+                        {new Date(penalty.calculatedDate).toLocaleDateString(
+                          "es-AR",
+                        )}
+                      </td>
+                      <td className="py-2 pr-3 text-right">
+                        {formatPrice(
+                          Number(penalty.overdueAmount),
+                          rental.currency,
+                        )}
+                      </td>
+                      <td className="py-2 pr-3 text-right">
+                        {penalty.overdueDays}
+                      </td>
+                      <td className="py-2 pr-3 text-right">
+                        {formatPrice(
+                          Number(penalty.penaltyAmount),
+                          rental.currency,
+                        )}
+                      </td>
+                      <td className="py-2 pr-3 text-right">
+                        <span
+                          className={cn(
+                            "inline-flex items-center rounded-full border px-2 py text-xs font-medium",
+                            penalty.status === "pagado"
+                              ? "border-green/20 bg-green/5 text-green-600"
+                              : "border-orange/20 bg-orange/5 text-orange-600",
+                          )}
+                        >
+                          {rentalPenaltyStatusLabels[penalty.status]}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </CardContent>
       </Card>
 

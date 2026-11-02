@@ -330,6 +330,15 @@ export const valuations = pgTable(
 
 export type RentalStatus = "vigente" | "finalizado" | "rescindido";
 
+export type RentalIndexType =
+  | "ninguno"
+  | "icl"
+  | "ipc"
+  | "casa_propia"
+  | "cer"
+  | "uva"
+  | "otro";
+
 /**
  * A lease/rental managed by the tenant. Optionally links to a property and to
  * the tenant's client (the renter). Org-scoped for multi-tenant isolation.
@@ -355,6 +364,16 @@ export const rentals = pgTable(
       mode: "number",
     }),
     currency: text("currency").$type<Currency>().notNull().default("ARS"),
+    /** Tipo de índice de ajuste del canon (opcional). */
+    indexType: text("index_type").$type<RentalIndexType>().default("ninguno"),
+    /** Día del mes en que se aplica el ajuste (1-28, opcional). */
+    adjustmentDay: integer("adjustment_day"),
+    /** Tasa de punitorio por día de mora en porcentaje (0-100, opcional). */
+    penaltyRate: numeric("penalty_rate", {
+      precision: 5,
+      scale: 2,
+      mode: "number",
+    }),
     status: text("status").$type<RentalStatus>().notNull().default("vigente"),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -688,6 +707,170 @@ export const settlementExpenses = pgTable(
   },
   (table) => [
     index("settlement_expenses_settlement_idx").on(table.settlementId),
+  ],
+);
+
+export type RentalIndexEntryStatus = "applied" | "reverted";
+
+export type RentalPenaltyStatus = "pendiente" | "pagado";
+
+/**
+ * Registro de un ajuste de índice aplicado a un alquiler. Guarda el índice
+ * usado, los valores base y nuevo, y los montos antes y después del ajuste.
+ */
+export const rentalIndexEntries = pgTable(
+  "rental_index_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    rentalId: uuid("rental_id")
+      .notNull()
+      .references(() => rentals.id, { onDelete: "cascade" }),
+    /** Índice usado para el ajuste (icl, ipc, uva, etc.). */
+    indexType: text("index_type").$type<RentalIndexType>().notNull(),
+    /** Valor del índice en la fecha base (antes del ajuste). */
+    baseIndexValue: numeric("base_index_value", {
+      precision: 14,
+      scale: 4,
+      mode: "number",
+    }).notNull(),
+    /** Valor del índice en la fecha de ajuste (después del ajuste). */
+    newIndexValue: numeric("new_index_value", {
+      precision: 14,
+      scale: 4,
+      mode: "number",
+    }).notNull(),
+    /** Canon del alquiler antes del ajuste. */
+    previousRent: numeric("previous_rent", {
+      precision: 14,
+      scale: 2,
+      mode: "number",
+    }).notNull(),
+    /** Nuevo canon del alquiler después del ajuste (editable antes de confirmar). */
+    newRent: numeric("new_rent", {
+      precision: 14,
+      scale: 2,
+      mode: "number",
+    }).notNull(),
+    /** Fecha en que se aplica el ajuste. */
+    appliedDate: date("applied_date").notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("rental_index_entries_organization_idx").on(
+      table.organizationId,
+    ),
+    index("rental_index_entries_rental_idx").on(table.rentalId),
+  ],
+);
+
+/**
+ * Snapshot histórico del canon vigente de un alquiler con fecha de inicio y
+ * fin de vigencia. Permite consultar cuánto se cobraba en cualquier fecha.
+ */
+export const rentalRentHistory = pgTable(
+  "rental_rent_history",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    rentalId: uuid("rental_id")
+      .notNull()
+      .references(() => rentals.id, { onDelete: "cascade" }),
+    /** Canon vigente durante el período. */
+    rentAmount: numeric("rent_amount", {
+      precision: 14,
+      scale: 2,
+      mode: "number",
+    }).notNull(),
+    currency: text("currency").$type<Currency>().notNull(),
+    /** Fecha desde la cual rige este monto (inclusive). */
+    validFrom: date("valid_from").notNull(),
+    /** Fecha hasta la cual rige este monto (inclusive, null si es vigente). */
+    validTo: date("valid_to"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("rental_rent_history_organization_idx").on(table.organizationId),
+    index("rental_rent_history_rental_idx").on(table.rentalId),
+    index("rental_rent_history_rental_valid_idx").on(
+      table.rentalId,
+      table.validFrom,
+    ),
+  ],
+);
+
+/**
+ * Registro de punitorio por mora en un alquiler. Puede quedar pendiente o
+ * marcarse como pagado una vez cancelado.
+ */
+export const rentalPenalties = pgTable(
+  "rental_penalties",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    rentalId: uuid("rental_id")
+      .notNull()
+      .references(() => rentals.id, { onDelete: "cascade" }),
+    /** Monto adeudado sobre el cual se calcula el punitorio. */
+    overdueAmount: numeric("overdue_amount", {
+      precision: 14,
+      scale: 2,
+      mode: "number",
+    }).notNull(),
+    /** Días de mora considerados. */
+    overdueDays: integer("overdue_days").notNull(),
+    /** Tasa diaria de punitorio en porcentaje (0-100). */
+    dailyRate: numeric("daily_rate", {
+      precision: 5,
+      scale: 2,
+      mode: "number",
+    }).notNull(),
+    /** Monto calculado del punitorio. */
+    penaltyAmount: numeric("penalty_amount", {
+      precision: 14,
+      scale: 2,
+      mode: "number",
+    }).notNull(),
+    /** Fecha en que se calculó el punitorio. */
+    calculatedDate: date("calculated_date").notNull(),
+    status: text("status")
+      .$type<RentalPenaltyStatus>()
+      .notNull()
+      .default("pendiente"),
+    /** Fecha en que se marcó como pagado (opcional). */
+    paidDate: date("paid_date"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("rental_penalties_organization_idx").on(table.organizationId),
+    index("rental_penalties_rental_idx").on(table.rentalId),
+    index("rental_penalties_rental_status_idx").on(
+      table.rentalId,
+      table.status,
+    ),
   ],
 );
 
