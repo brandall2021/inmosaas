@@ -1,4 +1,5 @@
 import {
+  Banknote,
   Building2,
   Calculator,
   Contact,
@@ -28,6 +29,7 @@ export const primaryNav: NavItem[] = [
   { title: "Catálogos", href: "/catalogos", icon: Library },
   { title: "Documentos", href: "/documentos", icon: FileText },
   { title: "Recibos", href: "/recibos", icon: FileText },
+  { title: "Caja", href: "/caja", icon: Banknote },
 ];
 
 export const secondaryNav: NavItem[] = [

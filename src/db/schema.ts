@@ -938,6 +938,149 @@ export const receipts = pgTable(
   ],
 );
 
+export type CashBoxEntryType = "ingreso" | "egreso";
+
+export type CashBoxCategory =
+  | "ventas"
+  | "alquileres"
+  | "servicios"
+  | "expensas"
+  | "impuestos"
+  | "sueldos"
+  | "mantenimiento"
+  | "otros";
+
+export type CashBoxEntryStatus = "pendiente" | "conciliado";
+
+/**
+ * Movimiento de caja general (ingreso o egreso) no necesariamente ligado a un
+ * alquiler. Sirve para registrar cualquier entrada o salida de dinero de la
+ * organización (expensas, servicios, compras, cobros diversos, etc.).
+ */
+export const cashBoxEntries = pgTable(
+  "cash_box_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    /** Tipo de movimiento: ingreso o egreso. */
+    type: text("type").$type<CashBoxEntryType>().notNull(),
+    /** Descripción del movimiento. */
+    concept: text("concept").notNull(),
+    /** Monto del movimiento (siempre positivo, el tipo lleva el signo). */
+    amount: numeric("amount", {
+      precision: 14,
+      scale: 2,
+      mode: "number",
+    }).notNull(),
+    currency: text("currency").$type<Currency>().notNull(),
+    /** Categoría del movimiento para agrupación e informes. */
+    category: text("category").$type<CashBoxCategory>().notNull(),
+    /** Fecha del movimiento. */
+    date: date("date").notNull(),
+    /** Cliente vinculado opcional (inquilino o propietario). */
+    clientId: uuid("client_id").references(() => clients.id, {
+      onDelete: "set null",
+    }),
+    /** Alquiler vinculado opcional. */
+    rentalId: uuid("rental_id").references(() => rentals.id, {
+      onDelete: "set null",
+    }),
+    /** Estado del movimiento: pendiente o conciliado (cerrado en caja). */
+    status: text("status")
+      .$type<CashBoxEntryStatus>()
+      .notNull()
+      .default("pendiente"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("cash_box_entries_organization_idx").on(table.organizationId),
+    index("cash_box_entries_org_date_idx").on(
+      table.organizationId,
+      table.date,
+    ),
+    index("cash_box_entries_org_type_idx").on(
+      table.organizationId,
+      table.type,
+    ),
+    index("cash_box_entries_org_status_idx").on(
+      table.organizationId,
+      table.status,
+    ),
+    index("cash_box_entries_client_idx").on(table.clientId),
+    index("cash_box_entries_rental_idx").on(table.rentalId),
+  ],
+);
+
+/**
+ * Cierre de caja por organización y fecha. Registra el monto inicial, el saldo
+ * teórico calculado, el saldo real declarado y la diferencia.
+ */
+export const cashBoxClosings = pgTable(
+  "cash_box_closings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    /** Fecha de cierre (única por organización). */
+    closingDate: date("closing_date").notNull().unique(),
+    /** Monto inicial en caja al inicio del período. */
+    openingAmount: numeric("opening_amount", {
+      precision: 14,
+      scale: 2,
+      mode: "number",
+    }).notNull(),
+    /** Suma de ingresos del período (calculada). */
+    totalIncome: numeric("total_income", {
+      precision: 14,
+      scale: 2,
+      mode: "number",
+    }).notNull(),
+    /** Suma de egresos del período (calculada). */
+    totalExpense: numeric("total_expense", {
+      precision: 14,
+      scale: 2,
+      mode: "number",
+    }).notNull(),
+    /** Saldo teórico: openingAmount + totalIncome - totalExpense. */
+    theoreticalBalance: numeric("theoretical_balance", {
+      precision: 14,
+      scale: 2,
+      mode: "number",
+    }).notNull(),
+    /** Saldo real declarado por el usuario al cerrar. */
+    realBalance: numeric("real_balance", {
+      precision: 14,
+      scale: 2,
+      mode: "number",
+    }).notNull(),
+    /** Diferencia: realBalance - theoreticalBalance. */
+    difference: numeric("difference", {
+      precision: 14,
+      scale: 2,
+      mode: "number",
+    }).notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("cash_box_closings_organization_idx").on(table.organizationId),
+  ],
+);
+
 export const usersRelations = relations(users, ({ many }) => ({
   memberships: many(memberships),
   sessions: many(sessions),
@@ -1096,3 +1239,7 @@ export type CatalogEntry = typeof catalogEntries.$inferSelect;
 export type NewCatalogEntry = typeof catalogEntries.$inferInsert;
 export type Document = typeof documents.$inferSelect;
 export type NewDocument = typeof documents.$inferInsert;
+export type CashBoxEntry = typeof cashBoxEntries.$inferSelect;
+export type NewCashBoxEntry = typeof cashBoxEntries.$inferInsert;
+export type CashBoxClosing = typeof cashBoxClosings.$inferSelect;
+export type NewCashBoxClosing = typeof cashBoxClosings.$inferInsert;
